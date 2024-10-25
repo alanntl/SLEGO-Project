@@ -3,6 +3,10 @@ import sys
 import subprocess
 import platform
 from typing import Dict, Any, Optional
+import os
+import sys
+import platform
+from typing import Dict, Any, Optional
 
 def detect_environment() -> str:
     """Detect the current runtime environment."""
@@ -44,29 +48,16 @@ def get_environment_config(use_local_repo: bool = True, local_repo_path: Optiona
                 config['drive_mainfolder'] = local_repo_path
                 config['drive_folder'] = os.path.dirname(local_repo_path)
             else:
-                try:
-                    current_dir = os.getcwd()
-                except PermissionError as e:
-                    print(f"PermissionError: {e}")
-                    current_dir = os.path.expanduser('~')  # Fallback to home directory
-                config['drive_mainfolder'] = current_dir
-                config['drive_folder'] = os.path.dirname(current_dir)
+                raise ValueError("local_repo_path must be provided when use_local_repo is True")
         else:
             # If not using local repo, set default drive_mainfolder
-            try:
-                current_dir = os.getcwd()
-            except PermissionError as e:
-                print(f"PermissionError: {e}")
-                current_dir = os.path.expanduser('~')  # Fallback to home directory
-            config['drive_folder'] = current_dir
-            config['drive_mainfolder'] = os.path.join(current_dir, 'SLEGO')
+            home_dir = os.path.expanduser('~')
+            config['drive_folder'] = home_dir
+            config['drive_mainfolder'] = os.path.join(home_dir, 'SLEGO')
 
     # Include use_local_repo and local_repo_path in the config
     config['use_local_repo'] = use_local_repo
     config['local_repo_path'] = local_repo_path
-
-    # Since we are not cloning, we don't need repo_url
-    # config['repo_url'] = 'https://github.com/alanntl/SLEGO-Project.git'
 
     config['slego_env'] = os.path.join(config['drive_folder'], 'slego_env_v0_0_1')
     config['requirements_file'] = os.path.join(config['drive_mainfolder'], 'requirements.txt')
@@ -111,15 +102,11 @@ def setup_workspace(config: Dict[str, Any]):
             print(f"Folder already exists: {folder}")
 
     # Only change directory if folder_path is different from current directory
-    try:
-        current_dir = os.getcwd()
-    except PermissionError as e:
-        print(f"PermissionError when getting current directory: {e}")
-        current_dir = config['drive_mainfolder']  # Use drive_mainfolder as fallback
-
-    if os.path.abspath(config['folder_path']) != os.path.abspath(current_dir):
+    desired_dir = os.path.abspath(config['folder_path'])
+    current_dir = os.path.abspath(os.getcwd())
+    if desired_dir != current_dir:
         try:
-            os.chdir(config['folder_path'])
+            os.chdir(desired_dir)
             print(f"Working directory changed to: {os.getcwd()}")
         except PermissionError as e:
             print(f"PermissionError when changing directory: {e}")

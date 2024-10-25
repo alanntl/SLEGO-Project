@@ -1,0 +1,57 @@
+@prefix ns1: <http://example.org/link/> .
+
+<http://example.org/class/IntradayMetric> a <http://example.org/class/Measure> ;
+    ns1:proxy <http://example.org/class/Liquidity>,
+        <http://example.org/class/Price> .
+
+<http://example.org/class/TickData> a <http://example.org/class/DataSet> ;
+    ns1:containMeasure <http://example.org/class/Direction>,
+        <http://example.org/class/TradePrice>,
+        <http://example.org/class/Volume> ;
+    ns1:dataSource <http://example.org/class/RefinitivDataScope> .
+
+<http://example.org/class/AveragePrice> a <http://example.org/class/Measure> ;
+    ns1:msOutput <http://example.org/class/calc_avg> .
+
+<http://example.org/class/DollarVolumeTraded> a <http://example.org/class/Measure> ;
+    ns1:msOutput <http://example.org/class/calc_doll_vol> .
+
+<http://example.org/class/Liquidity> a <http://example.org/class/Measure> ;
+    ns1:measuredBy <http://example.org/class/DollarVolumeTraded>,
+        <http://example.org/class/ShareVolumeTraded> .
+
+<http://example.org/class/Price> a <http://example.org/class/Measure> ;
+    ns1:measuredBy <http://example.org/class/AveragePrice>,
+        <http://example.org/class/VWAP> .
+
+<http://example.org/class/RefinitivDataScope> a <http://example.org/class/DataSource> .
+
+<http://example.org/class/ShareVolumeTraded> a <http://example.org/class/Measure> ;
+    ns1:msOutput <http://example.org/class/calc_share_vol> .
+
+<http://example.org/class/VWAP> a <http://example.org/class/Measure> ;
+    ns1:msOutput <http://example.org/class/calc_vwap> .
+
+<http://example.org/class/calc_avg> a <http://example.org/class/Microservice> ;
+    ns1:msInput <http://example.org/class/TradePrice> .
+
+<http://example.org/class/calc_doll_vol> a <http://example.org/class/Microservice> ;
+    ns1:msInput <http://example.org/class/Direction>,
+        <http://example.org/class/TradePrice>,
+        <http://example.org/class/Volume> .
+
+<http://example.org/class/calc_share_vol> a <http://example.org/class/Microservice> ;
+    ns1:msInput <http://example.org/class/Direction>,
+        <http://example.org/class/Volume> .
+
+<http://example.org/class/calc_vwap> a <http://example.org/class/Microservice> ;
+    ns1:msInput <http://example.org/class/Direction>,
+        <http://example.org/class/TradePrice>,
+        <http://example.org/class/Volume> .
+
+<http://example.org/class/Direction> a <http://example.org/class/Variable> .
+
+<http://example.org/class/TradePrice> a <http://example.org/class/Variable> .
+
+<http://example.org/class/Volume> a <http://example.org/class/Variable> .
+

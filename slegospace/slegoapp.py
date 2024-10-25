@@ -11,8 +11,22 @@ import itertools
 import importlib
 from datetime import datetime
 from typing import Dict, Any
+import rdflib
+#import slegospace.util as util
 
+from rdflib import Graph, URIRef
+from pyvis.network import Network
+import logging
+import webbrowser
+import os
+import panel as pn
+import pandas as pd
+import kglab
+from pyvis.network import Network
+from rdflib import URIRef
+import networkx as nx
 # Install required packages if they are not already installed
+
 def check_and_install_packages():
     required_packages = ['panel', 'param', 'pandas', 'kglab', 'pyvis', 'rdflib']
     for package in required_packages:
@@ -24,7 +38,7 @@ def check_and_install_packages():
 
 check_and_install_packages()
 
-import panel as pn
+
 import param
 import pandas as pd
 import kglab
@@ -506,104 +520,196 @@ class SLEGOApp:
                 parameter_dict[name] = None
         return parameter_dict
 
-    def ontology_btn_click(self, event):
-        logger.info("Ontology button clicked.")
-        input_file_path = os.path.join(self.ontologyspace, "hfd.ttl")
-        output_file_path = os.path.join(self.ontologyspace, "hfd_visualization.html")
-        self.visualize_rdf_graph(input_file_path, output_file_path)
 
-        if os.path.exists(output_file_path):
-            if self.is_colab_runtime():
-                from IPython.display import IFrame, display
-                display(IFrame(src=output_file_path, width='100%', height='600px'))
-            else:
-                import webbrowser
-                webbrowser.open_new_tab(f'file://{os.path.abspath(output_file_path)}')
+
+    # Step 2: Define the construct_subgraph function
+    def construct_subgraph(self, file_path, query, output_file):
+        """
+        Executes a CONSTRUCT query on an RDF graph and saves the resulting subgraph to a file.
+
+        Args:
+            file_path (str): Path to the input RDF Turtle file.
+            query (str): SPARQL CONSTRUCT query string.
+            output_file (str): Path to the output Turtle file.
+        """
+            # Step 1: Define the style
+
+        # Load the original graph
+        g = rdflib.Graph()
+        g.parse(file_path, format='turtle')
+
+        # Execute the CONSTRUCT query
+        subgraph = g.query(query)
+
+        # Get the resulting graph
+        subgraph_graph = rdflib.Graph()
+        for triple in subgraph:
+            subgraph_graph.add(triple)
+
+        # Save the subgraph to a Turtle file
+        subgraph_graph.serialize(destination=output_file, format='turtle')
+
+        print(f"Subgraph saved to {output_file}")
+
+    # Step 3: Convert the Graph to Results Format
+    def graph_to_results(self, graph):
+        results = []
+        for subj, pred, obj in graph:
+            row = [('subject', subj), ('predicate', pred), ('object', obj)]
+            results.append(row)
+        return results
+
+    # Step 4: Helper Function to Extract Local Names
+    def get_local_name(self, uri):
+        if isinstance(uri, rdflib.term.URIRef):
+            uri = str(uri)
+        if '#' in uri:
+            return uri.split('#')[-1]
+        elif '/' in uri:
+            return uri.rstrip('/').split('/')[-1]
         else:
-            logger.error(f"The file {output_file_path} does not exist.")
+            return uri
 
-    def visualize_rdf_graph(self, input_file_path, output_file_path):
-        logger.info("Visualizing RDF graph...")
-        try:
-            kg = kglab.KnowledgeGraph()
-            kg.load_rdf(input_file_path)
-            net = Network(
-                notebook=True, height="1000px", width="100%",
-                bgcolor="#ffffff", font_color="black",
-                directed=True, cdn_resources='remote'
-            )
+    # Step 5: Visualization Function
+    def visualize_query_results_interactive(self, results):
+        style = {
+            "color": "gray",
+            "shape": "ellipse",
+            "size": 10
+        }
 
-            # Define visualization options and styles as per your previous code
-            net.set_options("""
-            var options = {
-                "nodes": {
-                    "shape": "box",
-                    "size": 30,
-                    "font": {
-                        "size": 14,
-                        "face": "Tahoma"
-                    }
-                },
-                "edges": {
-                    "arrows": {
-                        "to": {
-                            "enabled": true,
-                            "scaleFactor": 1
-                        }
-                    },
-                    "smooth": {
-                        "type": "continuous"
-                    }
-                },
-                "layout": {
-                    "hierarchical": {
-                        "enabled": true,
-                        "levelSeparation": 250,
-                        "nodeSpacing": 200,
-                        "treeSpacing": 300,
-                        "blockShifting": true,
-                        "edgeMinimization": true,
-                        "parentCentralization": true,
-                        "direction": "LR",
-                        "sortMethod": "hubsize"
-                    }
-                },
-                "physics": {
-                    "enabled": false
-                }
-            }
-            """)
+        G = nx.DiGraph()
+        node_types = {}
 
-            for subject, predicate, obj in kg.rdf_graph().triples((None, None, None)):
-                if isinstance(subject, URIRef):
-                    self.__add_node(net, kg, subject)
-                if isinstance(obj, URIRef):
-                    self.__add_node(net, kg, obj)
-                if isinstance(predicate, URIRef):
-                    edge_label = predicate.split("/")[-1]
-                    net.add_edge(str(subject), str(obj), label=edge_label)
+        # Build the graph
+        for row in results:
+            row_dict = dict(row)
+            subj = self.get_local_name(row_dict['subject'])
+            pred = row_dict['predicate']
+            obj = self.get_local_name(row_dict['object'])
+            
+            # Capture rdf:type relationships to identify node types
+            if str(pred) == rdflib.RDF.type:
+                node_types[subj] = obj
 
-            net.save_graph(output_file_path)
-            logger.info(f"RDF graph saved to {output_file_path}")
-        except Exception as e:
-            logger.error(f"Error visualizing RDF graph: {e}")
-            self.output_text.value += f"\nError visualizing RDF graph: {e}"
+            G.add_edge(subj, obj, label= self.get_local_name(pred))
 
-    def __add_node(self, net, kg, node):
-        label = node.split("/")[-1]
-        node_class = kg.rdf_graph().value(node, URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"))
-        if node_class:
-            class_name = node_class.split("/")[-1]
-            style = {"color": "gray", "shape": "ellipse", "size": 10}
-        else:
-            style = {"color": "gray", "shape": "ellipse", "size": 10}
-        net.add_node(
-            str(node), 
-            label=label, 
-            color=style["color"], 
-            shape=style["shape"], 
-            size=style["size"]
+        # Initialize the Network object
+        net = Network(
+            notebook=True, height="1000px", width="100%",
+            bgcolor="#ffffff", font_color="black", directed=True,
+            cdn_resources='remote'
         )
+
+        # Set visualization options and incorporate the style
+        net.set_options(f"""
+        var options = {{
+            "nodes": {{
+                "shape": "{style['shape']}",
+                "color": "{style['color']}",
+                "size": {style['size']},
+                "font": {{
+                    "size": 14,
+                    "face": "Tahoma"
+                }}
+            }},
+            "edges": {{
+                "arrows": {{
+                    "to": {{
+                        "enabled": true,
+                        "scaleFactor": 1
+                    }}
+                }},
+                "smooth": {{
+                    "type": "continuous"
+                }}
+            }},
+            "layout": {{
+                "hierarchical": {{
+                    "enabled": true,
+                    "levelSeparation": 250,
+                    "nodeSpacing": 200,
+                    "treeSpacing": 300,
+                    "blockShifting": true,
+                    "edgeMinimization": true,
+                    "parentCentralization": true,
+                    "direction": "LR",
+                    "sortMethod": "hubsize"
+                }}
+            }},
+            "physics": {{
+                "enabled": false
+            }}
+        }}
+        """)
+
+        # Add nodes to the network
+        for node in G.nodes():
+            node_type_uri = node_types.get(node, None)
+            node_type = self.get_local_name(node_type_uri) if node_type_uri else 'Unknown'
+            net.add_node(node, label=node, title=f"Type: {node_type}", **style)
+
+        # Add edges to the network
+        for u, v, data in G.edges(data=True):
+            label = data.get('label', '')
+            net.add_edge(u, v, label=label, title=label)
+
+        # Generate and show the network
+        output_html = 'slegospace/ontologyspace/interactive_graph.html'
+        net.show(output_html)
+        webbrowser.open('file://' + os.path.realpath(output_html))
+        print(f"Visualization saved to {output_html} and opened in your default browser.")
+
+    def extract_and_visualize_subgraph(self, file_path, subgraph_file, query):
+        """
+        Extracts and visualizes a subgraph based on a SPARQL CONSTRUCT query.
+
+        Args:
+            file_path (str): Path to the input RDF Turtle file.
+            subgraph_file (str): Path to the output Turtle file where the subgraph will be saved.
+            query (str): SPARQL CONSTRUCT query string to extract the subgraph.
+        """
+        # Construct and save the subgraph
+        g = rdflib.Graph()
+        g.parse(file_path, format='turtle')
+        subgraph = g.query(query)
+        subgraph_graph = rdflib.Graph()
+        for triple in subgraph:
+            subgraph_graph.add(triple)
+        subgraph_graph.serialize(destination=subgraph_file, format='turtle')
+
+        print(f"Subgraph saved to {subgraph_file}")
+
+        # Parse the subgraph
+        g = rdflib.Graph()
+        g.parse(subgraph_file, format='turtle')
+
+        print(f"Parsed {len(g)} triples from the subgraph.")
+
+        # Convert the subgraph to results
+        results = self.graph_to_results(g)
+
+        # Visualize the subgraph
+        self.visualize_query_results_interactive(results)
+
+    def ontology_btn_click(self, event):
+
+        sparql_query = self.progress_text.value.strip()  # Ensure no leading/trailing spaces
+        if not sparql_query:
+            self.output_text.value = "Error: No SPARQL query provided. Please input a valid query."
+            logger.error("No SPARQL query provided.")
+            return
+        
+        # Example usage of the function
+        file_path = 'slegospace/ontologyspace/hfd.ttl'
+        subgraph_file = 'slegospace/ontologyspace/hfd_subgraph.ttl'
+
+        # Call the function with the query as a parameter
+        self.extract_and_visualize_subgraph(file_path, subgraph_file, sparql_query)
+
+
+
+
 
     def run(self):
         logger.info("Running the app...")
@@ -623,3 +729,4 @@ class SLEGOApp:
     @staticmethod
     def is_colab_runtime():
         return 'google.colab' in sys.modules
+

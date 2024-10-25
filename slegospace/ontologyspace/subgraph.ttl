@@ -1,0 +1,11 @@
+@prefix ns1: <http://example.org/link/> .
+
+<http://example.org/class/IntradayMetric> ns1:proxy <http://example.org/class/Liquidity> .
+
+<http://example.org/class/DollarVolumeTraded> a <http://example.org/class/Measure> ;
+    ns1:msOutput <http://example.org/class/calc_doll_vol> .
+
+<http://example.org/class/Liquidity> a <http://example.org/class/Measure> ;
+    ns1:measuredBy <http://example.org/class/DollarVolumeTraded>,
+        <http://example.org/class/ShareVolumeTraded> .
+

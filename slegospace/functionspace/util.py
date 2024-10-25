@@ -21,7 +21,8 @@ def test_function(input_string:str='Hello!',
         # Write the input string to the file
         file.write(input_string)
 
-    # Return the input string
+    # Return the input stringƒ√ƒ√
+    
     return input_string
 
 def _compute(module_name, input):
@@ -124,3 +125,178 @@ def __combine_json_files(directory, output_file):
 
 # # Example usage:
 # combine_json_files('/content/drive/MyDrive/SLEGO/slegospace/knowledgespace', '/content/drive/MyDrive/SLEGO/slegospace/knowledgespace/kownledge.json')
+
+import os
+import rdflib
+import networkx as nx
+from pyvis.network import Network
+import webbrowser
+
+# Step 1: Define the style
+style = {
+    "color": "gray",
+    "shape": "ellipse",
+    "size": 10
+}
+
+# Step 2: Define the construct_subgraph function
+def __construct_subgraph(file_path, query, output_file):
+    """
+    Executes a CONSTRUCT query on an RDF graph and saves the resulting subgraph to a file.
+
+    Args:
+        file_path (str): Path to the input RDF Turtle file.
+        query (str): SPARQL CONSTRUCT query string.
+        output_file (str): Path to the output Turtle file.
+    """
+    # Load the original graph
+    g = rdflib.Graph()
+    g.parse(file_path, format='turtle')
+
+    # Execute the CONSTRUCT query
+    subgraph = g.query(query)
+
+    # Get the resulting graph
+    subgraph_graph = rdflib.Graph()
+    for triple in subgraph:
+        subgraph_graph.add(triple)
+
+    # Save the subgraph to a Turtle file
+    subgraph_graph.serialize(destination=output_file, format='turtle')
+
+    print(f"Subgraph saved to {output_file}")
+
+# Step 3: Convert the Graph to Results Format
+def __graph_to_results(graph):
+    results = []
+    for subj, pred, obj in graph:
+        row = [('subject', subj), ('predicate', pred), ('object', obj)]
+        results.append(row)
+    return results
+
+# Step 4: Helper Function to Extract Local Names
+def __get_local_name(uri):
+    if isinstance(uri, rdflib.term.URIRef):
+        uri = str(uri)
+    if '#' in uri:
+        return uri.split('#')[-1]
+    elif '/' in uri:
+        return uri.rstrip('/').split('/')[-1]
+    else:
+        return uri
+
+# Step 5: Visualization Function
+def __visualize_query_results_interactive(results):
+    G = nx.DiGraph()
+    node_types = {}
+
+    # Build the graph
+    for row in results:
+        row_dict = dict(row)
+        subj = __get_local_name(row_dict['subject'])
+        pred = row_dict['predicate']
+        obj = __get_local_name(row_dict['object'])
+        
+        # Capture rdf:type relationships to identify node types
+        if str(pred) == rdflib.RDF.type:
+            node_types[subj] = obj
+
+        G.add_edge(subj, obj, label=__get_local_name(pred))
+
+    # Initialize the Network object
+    net = Network(
+        notebook=True, height="1000px", width="100%",
+        bgcolor="#ffffff", font_color="black", directed=True,
+        cdn_resources='remote'
+    )
+
+    # Set visualization options and incorporate the style
+    net.set_options(f"""
+    var options = {{
+        "nodes": {{
+            "shape": "{style['shape']}",
+            "color": "{style['color']}",
+            "size": {style['size']},
+            "font": {{
+                "size": 14,
+                "face": "Tahoma"
+            }}
+        }},
+        "edges": {{
+            "arrows": {{
+                "to": {{
+                    "enabled": true,
+                    "scaleFactor": 1
+                }}
+            }},
+            "smooth": {{
+                "type": "continuous"
+            }}
+        }},
+        "layout": {{
+            "hierarchical": {{
+                "enabled": true,
+                "levelSeparation": 250,
+                "nodeSpacing": 200,
+                "treeSpacing": 300,
+                "blockShifting": true,
+                "edgeMinimization": true,
+                "parentCentralization": true,
+                "direction": "LR",
+                "sortMethod": "hubsize"
+            }}
+        }},
+        "physics": {{
+            "enabled": false
+        }}
+    }}
+    """)
+
+    # Add nodes to the network
+    for node in G.nodes():
+        node_type_uri = node_types.get(node, None)
+        node_type = __get_local_name(node_type_uri) if node_type_uri else 'Unknown'
+        net.add_node(node, label=node, title=f"Type: {node_type}", **style)
+
+    # Add edges to the network
+    for u, v, data in G.edges(data=True):
+        label = data.get('label', '')
+        net.add_edge(u, v, label=label, title=label)
+
+    # Generate and show the network
+    output_html = 'slegospace/ontologyspace/interactive_graph.html'
+    net.show(output_html)
+    webbrowser.open('file://' + os.path.realpath(output_html))
+    print(f"Visualization saved to {output_html} and opened in your default browser.")
+
+def __extract_and_visualize_subgraph(file_path, subgraph_file, query):
+    """
+    Extracts and visualizes a subgraph based on a SPARQL CONSTRUCT query.
+
+    Args:
+        file_path (str): Path to the input RDF Turtle file.
+        subgraph_file (str): Path to the output Turtle file where the subgraph will be saved.
+        query (str): SPARQL CONSTRUCT query string to extract the subgraph.
+    """
+    # Construct and save the subgraph
+    g = rdflib.Graph()
+    g.parse(file_path, format='turtle')
+    subgraph = g.query(query)
+    subgraph_graph = rdflib.Graph()
+    for triple in subgraph:
+        subgraph_graph.add(triple)
+    subgraph_graph.serialize(destination=subgraph_file, format='turtle')
+
+    print(f"Subgraph saved to {subgraph_file}")
+
+    # Parse the subgraph
+    g = rdflib.Graph()
+    g.parse(subgraph_file, format='turtle')
+
+    print(f"Parsed {len(g)} triples from the subgraph.")
+
+    # Convert the subgraph to results
+    results = __graph_to_results(g)
+
+    # Visualize the subgraph
+    __visualize_query_results_interactive(results)

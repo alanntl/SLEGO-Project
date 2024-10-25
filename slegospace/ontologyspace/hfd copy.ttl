@@ -17,11 +17,9 @@
 # dbr:calc_doll_vol rdf1:msInput dbr:Direction, dbr:TradePrice, dbr:Volume .
 # dbr:calc_share_vol rdf1:msInput dbr:Direction, dbr:Volume .
 # dbr:calc_vwap rdf1:msInput dbr:Direction, dbr:TradePrice, dbr:Volume .
-@prefix dbr: <http://example.org/class/> .
-@prefix rdf1: <http://example.org/link/> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-
+@prefix dbr: <file:///content/rvo/class/> .
+@prefix rdf1: <file:///content/rvo/link/> .
+@prefix rdf: <http:///content/rvo/link/> .
 
 # Node definitions with their implicit classes
 dbr:IntradayMetric a dbr:Measure .

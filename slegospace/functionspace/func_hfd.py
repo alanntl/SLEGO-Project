@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 from math import log
 
-def populate(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_populate.csv'):
+def populate(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_populate.csv'):
     df = pd.read_csv(input_file_path)
     df = df[['Date-Time','Type','Price','Volume','Qualifiers','#RIC', 'Bid Price', 'Ask Price', 'Bid Size', 'Ask Size']]
     df = df.drop(df[df.Type != 'Trade'].index)
@@ -20,7 +20,7 @@ def populate(input_file_path:str='dataspace/input.csv', period:int=60, output_fi
     df.to_csv(output_file_path)
     return df
 
-def dollarVolumeTraded(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_dollarVolumeTraded.csv'):
+def dollarVolumeTraded(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_dollarVolumeTraded.csv'):
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     df_b = df.drop(df[df.Qualifiers.str[0] != 'B'].index)
@@ -39,7 +39,7 @@ def dollarVolumeTraded(input_file_path:str='dataspace/input.csv', period:int=60,
     newDf.to_csv(output_file_path)
     return newDf
     
-def shareVolumeTraded(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_shareVolumeTraded.csv'):
+def shareVolumeTraded(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_shareVolumeTraded.csv'):
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     df_b = df.drop(df[df.Qualifiers.str[0] != 'B'].index)
@@ -58,7 +58,7 @@ def shareVolumeTraded(input_file_path:str='dataspace/input.csv', period:int=60, 
     newDf.to_csv(output_file_path)
     return newDf  
 
-def vWAP(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_vWAP.csv'):
+def vWAP(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_vWAP.csv'):
     df= populate(input_file_path)
     newDf = pd.DataFrame() 
     df_b = df.drop(df[df.Qualifiers.str[0] != 'B'].index)
@@ -89,7 +89,7 @@ def vWAP(input_file_path:str='dataspace/input.csv', period:int=60, output_file_p
     newDf.to_csv(output_file_path)
     return newDf
 
-def arithmeticReturn(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_arithmeticReturn.csv'):
+def arithmeticReturn(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_arithmeticReturn.csv'):
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     df_b = df.drop(df[df.Qualifiers.str[0] != 'B'].index)
@@ -121,7 +121,7 @@ def arithmeticReturn(input_file_path:str='dataspace/input.csv', period:int=60, o
     newDf.to_csv(output_file_path)
     return newDf
 
-def logReturn(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_logReturn.csv'):
+def logReturn(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_logReturn.csv'):
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     df_b = df.drop(df[df.Qualifiers.str[0] != 'B'].index)
@@ -153,7 +153,7 @@ def logReturn(input_file_path:str='dataspace/input.csv', period:int=60, output_f
     newDf.to_csv(output_file_path)
     return newDf    
 
-def tradeCount(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_tradeCount.csv'):            
+def tradeCount(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_tradeCount.csv'):            
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     newDf['TradeCount'] = df.groupby(pd.Grouper(key='Date-Time', axis=0, freq=(str(period)+'T'))).size()
@@ -169,7 +169,7 @@ def tradeCount(input_file_path:str='dataspace/input.csv', period:int=60, output_
     newDf.to_csv(output_file_path)
     return newDf
 
-def effectiveSpread(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_effectiveSpread.csv'):
+def effectiveSpread(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_effectiveSpread.csv'):
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     cats = ['b','s']
@@ -200,7 +200,7 @@ def effectiveSpread(input_file_path:str='dataspace/input.csv', period:int=60, ou
     newDf.to_csv(output_file_path)
     return newDf
     
-def realisedSpread(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_realisedSpread.csv'):
+def realisedSpread(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_realisedSpread.csv'):
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     cats = ['b','s']
@@ -231,7 +231,7 @@ def realisedSpread(input_file_path:str='dataspace/input.csv', period:int=60, out
     newDf.to_csv(output_file_path)
     return newDf
     
-def priceImpact(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_priceImpact.csv'):
+def priceImpact(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_priceImpact.csv'):
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     cats = ['b','s']
@@ -262,7 +262,7 @@ def priceImpact(input_file_path:str='dataspace/input.csv', period:int=60, output
     newDf.to_csv(output_file_path)
     return newDf
 
-def averagePrice(input_file_path:str='dataspace/input.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_averagePrice.csv'):    
+def averagePrice(input_file_path:str='dataspace/BHPAX_20190717_Allday_test.csv', period:int=60, output_file_path:str= 'dataspace/dataspace_averagePrice.csv'):    
     df = populate(input_file_path)
     newDf = pd.DataFrame() 
     averaged = df.groupby(pd.Grouper(key='Date-Time', axis=0, freq=(str(period)+'T'))).mean(numeric_only=True)
@@ -271,17 +271,17 @@ def averagePrice(input_file_path:str='dataspace/input.csv', period:int=60, outpu
     newDf.to_csv(output_file_path)
     return newDf
     
-def main():
-    dollarVolumeTraded('dataspace/BHPAX_20190717_Allday.csv')
-    shareVolumeTraded('dataspace/BHPAX_20190717_Allday.csv')
-    vWAP('dataspace/BHPAX_20190717_Allday.csv')
-    arithmeticReturn('dataspace/BHPAX_20190717_Allday.csv')
-    logReturn('dataspace/BHPAX_20190717_Allday.csv')
-    tradeCount('dataspace/BHPAX_20190717_Allday.csv')
-    effectiveSpread('dataspace/BHPAX_20190717_Allday.csv')
-    realisedSpread('dataspace/BHPAX_20190717_Allday.csv')
-    priceImpact('dataspace/BHPAX_20190717_Allday.csv')
-    averagePrice('dataspace/BHPAX_20190717_Allday.csv')
+def main(file='dataspace/BHPAX_20190717_Allday_test.csv'):
+    dollarVolumeTraded(file)
+    shareVolumeTraded(file)
+    vWAP(file)
+    arithmeticReturn(file)
+    logReturn(file)
+    tradeCount(file)
+    effectiveSpread(file)
+    realisedSpread(file)
+    priceImpact(file)
+    averagePrice(file)
 
 if __name__ == "__main__":
     main()
