@@ -1,10 +1,5 @@
 import os
 import sys
-import subprocess
-import platform
-from typing import Dict, Any, Optional
-import os
-import sys
 import platform
 from typing import Dict, Any, Optional
 
@@ -21,7 +16,7 @@ def detect_environment() -> str:
         print("Environment detected: Local Jupyter")
         return 'local-jupyter'
 
-def get_environment_config(use_local_repo: bool = True, local_repo_path: Optional[str] = None) -> Dict[str, Any]:
+def get_environment_config(use_local_repo: bool = True, local_repo_path: Optional[str] = os.getcwd()) -> Dict[str, Any]:
     """Get the configuration based on the current runtime environment."""
     print("Getting environment configuration...")
     config = {}
@@ -36,30 +31,17 @@ def get_environment_config(use_local_repo: bool = True, local_repo_path: Optiona
         drive_root = '/content/drive/MyDrive'
         config['drive_folder'] = drive_root
         config['drive_mainfolder'] = os.path.join(drive_root, 'SLEGO')
-    elif env == 'github-codespaces':
-        print("Setting up configuration for GitHub Codespaces environment.")
-        home_dir = os.path.expanduser('~')
-        config['drive_folder'] = home_dir
-        config['drive_mainfolder'] = os.path.join(home_dir, 'SLEGO')
-    else:  # local-jupyter or other environments
-        print("Setting up configuration for Local Jupyter environment.")
-        if use_local_repo:
-            if local_repo_path:
-                config['drive_mainfolder'] = local_repo_path
-                config['drive_folder'] = os.path.dirname(local_repo_path)
-            else:
-                raise ValueError("local_repo_path must be provided when use_local_repo is True")
-        else:
-            # If not using local repo, set default drive_mainfolder
-            home_dir = os.path.expanduser('~')
-            config['drive_folder'] = home_dir
-            config['drive_mainfolder'] = os.path.join(home_dir, 'SLEGO')
+    else:
+        # For GitHub Codespaces and local environments
+        print("Setting up configuration for Local or GitHub Codespaces environment.")
+        config['drive_folder'] = local_repo_path
+        config['drive_mainfolder'] = local_repo_path
 
     # Include use_local_repo and local_repo_path in the config
     config['use_local_repo'] = use_local_repo
     config['local_repo_path'] = local_repo_path
 
-    config['slego_env'] = os.path.join(config['drive_folder'], 'slego_env_v0_0_1')
+    config['slego_env'] = os.path.join(config['drive_mainfolder'], 'slego_env_v0_0_1')
     config['requirements_file'] = os.path.join(config['drive_mainfolder'], 'requirements.txt')
 
     # Set up workspace folders
