@@ -11,8 +11,3 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
       JUPYTER_ENABLE_LAB: "yes"
-    command: >
-      sh -c "
-      jupyter nbconvert --to script /workspace/SLEGO.ipynb --output /workspace/app.py &&
-      panel serve /workspace/app.py --allow-websocket-origin=* --port 5006
-      "

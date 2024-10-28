@@ -10,7 +10,6 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         build-essential \
         nodejs \
         npm \
-        jupyter \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -22,6 +21,8 @@ COPY . /workspace/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt \
+    jupyter \
+    jupyterlab \
     panel \
     param \
     pyvis \
@@ -29,11 +30,11 @@ RUN pip install --no-cache-dir -r requirements.txt \
     networkx \
     kglab
 
-# Convert SLEGO.ipynb to app.py
-RUN jupyter nbconvert --to script SLEGO.ipynb --output app.py
+# Convert Jupyter notebook to Python script
+RUN jupyter nbconvert --to script /workspace/SLEGO.ipynb --output /workspace/app.py
 
-# Expose the port for Panel application
+# Expose the port used by Panel
 EXPOSE 5006
 
-# Run the app.py with Panel
-CMD ["panel", "serve", "/workspace/app.py", "--allow-websocket-origin=*"]
+# Run the app
+CMD ["panel", "serve", "/workspace/app.py", "--allow-websocket-origin=*", "--port", "5006"]
