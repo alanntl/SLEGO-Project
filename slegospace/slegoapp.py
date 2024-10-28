@@ -323,6 +323,8 @@ class SLEGOApp:
         self.json_editor.value = funcs_params
         self.input_text.value = formatted_data
         self.output_text.value = self.get_doc_string(formatted_data)
+        
+        #self.json_editor.expand_all()
 
     def input_text_change(self, event):
         logger.info("Input text changed.")

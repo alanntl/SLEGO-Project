@@ -2,10 +2,9 @@ panel
 jupyter_bokeh
 openml
 ucimlrepo
-openai==1.19.0
+openai
 PyPDF2
 pdfkit
-autogluon
 arxiv
 python-docx
 openpyxl
@@ -14,12 +13,7 @@ Pillow
 sweetviz
 vectorbt
 quantstats
-autokeras
 kglab
 rdflib
-pyvis
-prophet
-keras
-tensorflow
 pyvis
 yfinance
