@@ -3,12 +3,12 @@ FROM mcr.microsoft.com/devcontainers/python:3.10
 # Install system dependencies
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
-        git \
-        curl \
-        graphviz \
-        build-essential \
-        nodejs \
-        npm \
+    git \
+    curl \
+    graphviz \
+    build-essential \
+    nodejs \
+    npm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -35,7 +35,8 @@ RUN chmod +x /workspace/start.sh
 
 ENV PYTHONUNBUFFERED=1
 ENV JUPYTER_ENABLE_LAB=yes
-ENV JUPYTER_TOKEN=easy-token
+ENV JUPYTER_TOKEN=""
+ENV JUPYTER_CONFIG_DIR="/workspace/.jupyter"
 
 EXPOSE 8888 5006
 
