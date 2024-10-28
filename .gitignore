@@ -7,11 +7,22 @@ __pycache__/
 .env/
 .venv/
 
-# Exclude .env file
-.env
-
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+*copy.ipynb
+
+# Secrets and environment files
+.env
+.env.local
+*.env
+!.env.example
+*.key
+credentials.json
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
 
 # Database files
 # *.db
@@ -19,13 +30,8 @@ __pycache__/
 # Models directory (if generated during execution)
 slegospace/AutogluonModels/
 
-# Logs and temporary files
-*.log
-*.tmp
-*.bak
-
 # Ignore specific data folders if they are generated or shouldn't be tracked
-slegospace/dataspace/
+# slegospace/dataspace/
 slegospace/recordspace/
 
 # Environment setup files
@@ -36,7 +42,3 @@ SLEGO_Legacy.ipynb
 
 # IDE specific files (e.g. VSCode)
 .vscode/
-
-
-
-recordspace
