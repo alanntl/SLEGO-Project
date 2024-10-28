@@ -7,18 +7,6 @@ from typing import List, Union
 import json
 import datetime
 
-'''
-Guidelines for building microservices (python functions):
-
-1. Create a python function
-2. Make sure the function has a docstring that explain to user how to use the microservice, and what the service does
-3. Make sure the function has a return statement
-4. Make sure the function has a parameter
-5. Make sure the function has a default value for the parameter
-6. Make sure the function has a type hint for the parameter 
-'''
-
-# Step 1: Collect Fundamental Data from Yahoo Finance
 def collect_fundamental_data(
     tickers: List[str] = ['AAPL', 'MSFT'], 
     output_file_path: str = 'dataspace/fundamental_data.json'
@@ -28,7 +16,7 @@ def collect_fundamental_data(
 
     Parameters:
     - tickers (List[str]): A list of stock ticker symbols. Default is ['AAPL', 'MSFT'].
-    - output_file_path (str): Path to save the resulting JSON file containing fundamental data. Default is 'dataspace/fundamental_data.json'.
+    - output_file_path (str): Path to save the resulting JSON file containing fundamental data.
 
     Returns:
     - dict: A dictionary containing fundamental data for the tickers.
@@ -49,7 +37,6 @@ def collect_fundamental_data(
         json.dump(all_fundamentals, f)
     return all_fundamentals
 
-# Step 2: Collect Historical Stock Data
 def collect_historical_data(
     tickers: List[str] = ['AAPL', 'MSFT'], 
     start_date: str = (datetime.datetime.now() - datetime.timedelta(days=365)).strftime("%Y-%m-%d"), 
@@ -61,9 +48,9 @@ def collect_historical_data(
 
     Parameters:
     - tickers (List[str]): A list of stock ticker symbols. Default is ['AAPL', 'MSFT'].
-    - start_date (str): The start date for historical data in 'YYYY-MM-DD' format. Default is one year ago from today.
-    - end_date (str): The end date for historical data in 'YYYY-MM-DD' format. Default is today.
-    - output_file_path (str): Path to save the resulting CSV file containing historical data. Default is 'dataspace/historical_data.csv'.
+    - start_date (str): The start date for historical data in 'YYYY-MM-DD' format.
+    - end_date (str): The end date for historical data in 'YYYY-MM-DD' format.
+    - output_file_path (str): Path to save the resulting CSV file.
 
     Returns:
     - pd.DataFrame: DataFrame containing historical stock data for all tickers.
@@ -79,7 +66,6 @@ def collect_historical_data(
     historical_data.to_csv(output_file_path, index=False)
     return historical_data
 
-# Step 3: Collect Finance News
 def collect_finance_news(
     tickers: List[str] = ['AAPL', 'MSFT'], 
     max_articles: int = 5, 
@@ -89,9 +75,9 @@ def collect_finance_news(
     Collects recent financial news using web scraping for given tickers.
 
     Parameters:
-    - tickers (List[str]): A list of stock ticker symbols. Default is ['AAPL', 'MSFT'].
-    - max_articles (int): Maximum number of news articles to fetch per ticker. Default is 5.
-    - output_file_path (str): Path to save the resulting JSON file containing news. Default is 'dataspace/finance_news.json'.
+    - tickers (List[str]): A list of stock ticker symbols.
+    - max_articles (int): Maximum number of news articles to fetch per ticker.
+    - output_file_path (str): Path to save the resulting JSON file.
 
     Returns:
     - list: A list of dictionaries containing news headlines and summaries.
@@ -115,7 +101,6 @@ def collect_finance_news(
         json.dump(all_news, f)
     return all_news
 
-# Step 4: Generate Financial Advisor Report using GPT
 def generate_advisor_report(
     tickers: List[str] = ['AAPL', 'MSFT'],
     fundamentals: dict = None,
@@ -129,13 +114,13 @@ def generate_advisor_report(
     Generates a financial advisor report using OpenAI's GPT by analyzing collected data.
 
     Parameters:
-    - tickers (List[str]): A list of stock ticker symbols. Default is ['AAPL', 'MSFT'].
-    - fundamentals (dict): Dictionary containing fundamental data. If None, it will be collected.
-    - historical_data (pd.DataFrame): DataFrame containing historical stock data. If None, it will be collected.
-    - news (list): List of news articles. If None, it will be collected.
+    - tickers (List[str]): A list of stock ticker symbols.
+    - fundamentals (dict): Dictionary containing fundamental data.
+    - historical_data (pd.DataFrame): DataFrame containing historical stock data.
+    - news (list): List of news articles.
     - openai_api_key (str): OpenAI API key for authentication.
-    - model_name (str): Name of the OpenAI model to use. Default is 'gpt-3.5-turbo'.
-    - output_file_path (str): Path to save the generated report. Default is 'dataspace/advisor_report.txt'.
+    - model_name (str): Name of the OpenAI model to use.
+    - output_file_path (str): Path to save the generated report.
 
     Returns:
     - str: The generated financial advisor report.
@@ -165,17 +150,35 @@ Recent News:
         for idx, article in enumerate(ticker_news):
             report_summary += f"{idx + 1}. {article['headline']}: {article['summary']}\n"
 
+    # Recent price trends from historical data
+    if not historical_data.empty:
+        report_summary += "\nRecent Price Trends:\n"
+        for ticker in tickers:
+            ticker_data = historical_data[historical_data['Ticker'] == ticker].tail(5)
+            report_summary += f"\n{ticker} last 5 days:\n{ticker_data[['Datetime', 'Close']].to_string()}\n"
+
     # Prepare the prompt for GPT
     prompt = f"""
-You are a financial advisor. Based on the data below, provide an analysis and financial recommendation for an investor:
+You are a financial advisor. Based on the following data, provide a comprehensive analysis and investment recommendation:
+
 {report_summary}
+
+Please structure your analysis as follows:
+1. Market Overview
+2. Company Analysis (for each company)
+3. Risk Factors
+4. Investment Recommendations
+5. Potential Catalysts to Watch
+
+Focus on key metrics, recent developments, and potential future catalysts. Provide specific, actionable recommendations.
 """
 
     # Generate report using OpenAI API
     response = openai.ChatCompletion.create(
         model=model_name,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=500
+        max_tokens=1000,
+        temperature=0.7
     )
 
     report_text = response['choices'][0]['message']['content']
@@ -186,67 +189,50 @@ You are a financial advisor. Based on the data below, provide an analysis and fi
 
     return report_text
 
-# Example of using the full pipeline
-def financial_advisor_pipeline(
+def run_financial_analysis(
     tickers: List[str] = ['AAPL', 'MSFT'],
     start_date: str = (datetime.datetime.now() - datetime.timedelta(days=365)).strftime("%Y-%m-%d"),
     end_date: str = datetime.datetime.now().strftime("%Y-%m-%d"),
     max_articles: int = 5,
     openai_api_key: str = '',
-    model_name: str = 'gpt-3.5-turbo',
-    fundamental_data_output_file: str = 'dataspace/fundamental_data.json',
-    historical_data_output_file: str = 'dataspace/historical_data.csv',
-    finance_news_output_file: str = 'dataspace/finance_news.json',
-    advisor_report_output_file: str = 'dataspace/advisor_report.txt'
+    model_name: str = 'gpt-3.5-turbo'
 ) -> str:
     """
-    Executes the full financial advisor pipeline: collects fundamental data, historical data, news, and generates a report.
+    Runs the complete financial analysis pipeline: collects all data and generates an analysis report.
 
     Parameters:
-    - tickers (List[str]): A list of stock ticker symbols. Default is ['AAPL', 'MSFT'].
-    - start_date (str): The start date for historical data in 'YYYY-MM-DD' format. Default is one year ago from today.
-    - end_date (str): The end date for historical data in 'YYYY-MM-DD' format. Default is today.
-    - max_articles (int): Maximum number of news articles to fetch per ticker. Default is 5.
-    - openai_api_key (str): OpenAI API key for authentication.
-    - model_name (str): Name of the OpenAI model to use. Default is 'gpt-3.5-turbo'.
-    - fundamental_data_output_file (str): Path to save the fundamental data JSON file. Default is 'dataspace/fundamental_data.json'.
-    - historical_data_output_file (str): Path to save the historical data CSV file. Default is 'dataspace/historical_data.csv'.
-    - finance_news_output_file (str): Path to save the finance news JSON file. Default is 'dataspace/finance_news.json'.
-    - advisor_report_output_file (str): Path to save the generated advisor report. Default is 'dataspace/advisor_report.txt'.
+    - tickers (List[str]): List of stock tickers to analyze
+    - start_date (str): Start date for historical data
+    - end_date (str): End date for historical data
+    - max_articles (int): Maximum number of news articles per ticker
+    - openai_api_key (str): OpenAI API key
+    - model_name (str): OpenAI model to use
 
     Returns:
-    - str: The generated financial advisor report.
+    - str: The generated analysis report
     """
-    # Collect Fundamental Data
-    fundamentals = collect_fundamental_data(
-        tickers=tickers, 
-        output_file_path=fundamental_data_output_file
-    )
-
-    # Collect Historical Stock Data
-    historical_data = collect_historical_data(
-        tickers=tickers, 
-        start_date=start_date, 
-        end_date=end_date, 
-        output_file_path=historical_data_output_file
-    )
-
-    # Collect Finance News
-    news = collect_finance_news(
-        tickers=tickers, 
-        max_articles=max_articles, 
-        output_file_path=finance_news_output_file
-    )
-
-    # Generate Financial Advisor Report
-    advisor_report = generate_advisor_report(
+    # Step 1: Collect fundamental data
+    print("Collecting fundamental data...")
+    fundamentals = collect_fundamental_data(tickers)
+    
+    # Step 2: Collect historical data
+    print("Collecting historical data...")
+    historical_data = collect_historical_data(tickers, start_date, end_date)
+    
+    # Step 3: Collect news
+    print("Collecting recent news...")
+    news = collect_finance_news(tickers, max_articles)
+    
+    # Step 4: Generate report
+    print("Generating analysis report...")
+    report = generate_advisor_report(
         tickers=tickers,
         fundamentals=fundamentals,
         historical_data=historical_data,
         news=news,
         openai_api_key=openai_api_key,
-        model_name=model_name,
-        output_file_path=advisor_report_output_file
+        model_name=model_name
     )
-
-    return advisor_report
+    
+    print("Analysis complete! Report has been generated.")
+    return report

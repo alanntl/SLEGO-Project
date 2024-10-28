@@ -1,14 +1,16 @@
+# Start from a base Python image
 FROM mcr.microsoft.com/devcontainers/python:3.10
 
 # Install system dependencies
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
-    git \
-    curl \
-    graphviz \
-    build-essential \
-    nodejs \
-    npm \
+        git \
+        curl \
+        graphviz \
+        build-essential \
+        nodejs \
+        npm \
+        jupyter \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,8 +22,6 @@ COPY . /workspace/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt \
-    jupyter \
-    jupyterlab \
     panel \
     param \
     pyvis \
@@ -29,15 +29,11 @@ RUN pip install --no-cache-dir -r requirements.txt \
     networkx \
     kglab
 
-# Create startup script
-COPY start.sh /workspace/start.sh
-RUN chmod +x /workspace/start.sh
+# Convert SLEGO.ipynb to app.py
+RUN jupyter nbconvert --to script SLEGO.ipynb --output app.py
 
-ENV PYTHONUNBUFFERED=1
-ENV JUPYTER_ENABLE_LAB=yes
-ENV JUPYTER_TOKEN=""
-ENV JUPYTER_CONFIG_DIR="/workspace/.jupyter"
+# Expose the port for Panel application
+EXPOSE 5006
 
-EXPOSE 8888 5006
-
-CMD ["/workspace/start.sh"]
+# Run the app.py with Panel
+CMD ["panel", "serve", "/workspace/app.py", "--allow-websocket-origin=*"]

@@ -97,7 +97,7 @@ class SLEGOApp:
             logger.info(f"Python files available for selection: {self.py_files}")
 
         # Set default selected modules
-        default_modules = ['func_vix.py', 'func_yfinance.py']
+        default_modules = ['func_yfinance.py']
         default_selected = [module for module in default_modules if module in self.py_files]
         self.funcfilecombo = pn.widgets.MultiChoice(
             name='Select Module(s)',
@@ -174,7 +174,6 @@ class SLEGOApp:
         if not selected_modules:
             logger.error("No modules selected. Please ensure desired modules exist in the functionspace.")
             return
-
         self.update_func_module(selected_modules)
 
     def create_file_table(self):
@@ -710,11 +709,19 @@ class SLEGOApp:
         self.extract_and_visualize_subgraph(file_path, subgraph_file, sparql_query)
 
 
-
-
-
-    def run(self):
+    def run(self, modules=None):
+        """
+        Run the app, optionally with specific modules.
+        Args:
+            modules (list): List of modules to load.
+        """
         logger.info("Running the app...")
+        if modules:
+            logger.info(f"Loading specified modules: {modules}")
+            #add the module names to the function space
+            self.funcfilecombo.value = modules   
+            #self.update_func_module(modules)
+
         if not self.is_colab_runtime():
             template = pn.template.MaterialTemplate(
                 title='SLEGO - Software Lego: A Collaborative and Modular Architecture for Data Analytics',
@@ -727,6 +734,7 @@ class SLEGOApp:
             from IPython.display import display
             display(self.app)
             logger.info("App is running in Colab environment.")
+
 
     @staticmethod
     def is_colab_runtime():
