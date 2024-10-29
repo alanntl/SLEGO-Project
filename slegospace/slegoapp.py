@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Dict, Any
 import rdflib
 #import slegospace.util as util
+from IPython.display import Javascript, display
 
 from rdflib import Graph, URIRef
 from pyvis.network import Network
@@ -163,6 +164,8 @@ class SLEGOApp:
             ('Text Input', self.input_text)
         )
         self.ontology_btn = pn.widgets.Button(name='Show Ontology', height=35)
+
+        
 
         # Placeholder for funccombo
         self.funccombo_pane = pn.Column()
@@ -421,26 +424,76 @@ class SLEGOApp:
             logger.error(f"Error saving pipeline: {e}")
             self.output_text.value += f"\nError saving pipeline: {e}"
 
+
+    def open_with_default_app(self, file_path):
+        """
+        Opens a file with the system's default application based on the operating system.
+        
+        Parameters:
+        - file_path (str): The path to the file to open.
+        """
+        try:
+            if platform.system() == "Darwin":  # macOS
+                subprocess.call(["open", file_path])
+            elif platform.system() == "Windows":  # Windows
+                os.startfile(file_path)
+            elif platform.system() == "Linux":  # Linux
+                subprocess.call(["xdg-open", file_path])
+            else:
+                print("Unsupported operating system.")
+            print(f"The file at {file_path} was opened with its default application.")
+        except Exception as e:
+            print(f"An error occurred while trying to open the file: {e}")
+
+
+    def create_download_script(file_path):
+        """
+        Creates a JavaScript function to trigger download programmatically.
+        """
+        return f"""
+            function downloadFile() {{
+                const link = document.createElement('a');
+                link.href = '{file_path}';
+                link.download = '{os.path.basename(file_path)}';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }}
+            downloadFile();
+        """
+
+    def download_link(self, file_path):
+        """
+        Generates and executes a download link for a file in Codespace.
+        """
+        try:
+            # Create and execute JavaScript to trigger download
+            script = create_download_script(file_path)
+            display(Javascript(script))
+            return f"Downloading {os.path.basename(file_path)}..."
+        except Exception as e:
+            print(f"Error generating download link: {e}")
+
+
     def on_file_buttons_click(self, event):
         logger.info(f"File button '{event.obj.name}' clicked.")
         self.output_text.value = ''
         file_list = self.file_table.selected_dataframe['Filter Files :'].tolist()
         if file_list:
-            if event.obj.name == 'View':
-                for filename in file_list:
-                    file_path = os.path.join(self.folder_path, self.file_text.value.lstrip('/'), filename)
-                    if os.path.exists(file_path):
-                        with open(file_path, 'r') as file:
-                            content = file.read()
-                        self.output_text.value += f"\n===== {filename} =====\n{content}\n"
-                    else:
-                        self.output_text.value += f"\nFile {filename} does not exist."
-            elif event.obj.name == 'Download':
-                self.output_text.value = 'Download functionality is not implemented.'
-            elif event.obj.name == 'Upload':
-                self.output_text.value = 'Please use the file input widget to upload!'
-            elif event.obj.name == 'Delete':
-                self.output_text.value = 'Delete functionality is not implemented.'
+            for filename in file_list:
+                file_path = os.path.join(self.folder_path, self.file_text.value.lstrip('/'), filename)
+                if event.obj.name == 'View':
+                    self.open_with_default_app(file_path)
+                    with open(file_path, 'r') as file:
+                        content = file.read()
+                    self.output_text.value += f"\n===== {filename} =====\n{content}\n"
+                elif event.obj.name == 'Download':
+                    self.output_text.value = 'Initiating download...\n'
+                    result = self.download_link(file_path)
+                elif event.obj.name == 'Upload':
+                    self.output_text.value = 'Please use the file input widget to upload!'
+                elif event.obj.name == 'Delete':
+                    self.output_text.value = 'Delete functionality is not implemented.'
         else:
             self.output_text.value = 'Please select a file to perform the action.'
 

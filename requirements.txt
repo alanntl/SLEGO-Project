@@ -6,7 +6,7 @@ openai
 PyPDF2
 pdfkit
 arxiv
-python-docx
+
 openpyxl
 pytesseract
 Pillow
@@ -17,3 +17,6 @@ kglab
 rdflib
 pyvis
 yfinance
+
+python-dotenv
+python-docx
