@@ -781,7 +781,8 @@ class SLEGOApp:
                 sidebar=[],
             )
             template.main.append(self.app)
-            template.show()
+            template.show(port=5006)
+            template.servable()
             logger.info("App is running in non-Colab environment.")
         else:
             from IPython.display import display

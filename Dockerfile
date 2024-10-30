@@ -1,37 +1,21 @@
-# Start from a base Python image
-FROM mcr.microsoft.com/devcontainers/python:3.10
+# Use an official Python 3.10 base image
+FROM python:3.10
 
-# Install system dependencies
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends \
-        git \
-        curl \
-        graphviz \
-        build-essential \
-        nodejs \
-        npm \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Set the working directory in the container
+WORKDIR /app
 
-# Set working directory
-WORKDIR /workspace
+# Install necessary system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ make build-essential
 
-# Copy project files
-COPY . /workspace/
+# Copy the requirements file into the container
+COPY requirements.txt ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt \
-    jupyter \
-    jupyterlab \
-    panel \
-    param \
-    pyvis \
-    rdflib \
-    networkx \
-    kglab
+# Install any dependencies specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port used by Panel
-EXPOSE 5006
+# Copy the rest of the application code into the container
+COPY . .
 
-# Run the app
-CMD ["panel", "serve", "/workspace/app.py", "--allow-websocket-origin=*", "--port", "5006"]
+# Specify the command to run your Panel web application
+CMD ["python", "-m", "panel", "serve", "app.py"]
