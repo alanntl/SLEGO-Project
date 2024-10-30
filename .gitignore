@@ -28,12 +28,12 @@ credentials.json
 # *.db
 
 # Models directory (if generated during execution)
-slegospace/AutogluonModels/
+AutogluonModels/
 
 # Ignore specific data folders if they are generated or shouldn't be tracked
-slegospace/dataspace/
-slegospace/recordspace/
-slegospace/knowledgespace/
+dataspace/
+recordspace/
+knowledgespace/
 
 
 

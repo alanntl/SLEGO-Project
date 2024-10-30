@@ -1,7 +1,0 @@
-{
-    "func_finadvisor.get_historical_market_data": {
-        "ticker_symbol": "aapl",
-        "period": "1mo",
-        "output_file_path": "dataspace/historical_data.csv"
-    }
-}

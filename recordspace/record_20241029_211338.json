@@ -1,7 +1,0 @@
-{
-    "func_finadvisor.get_historical_market_data": {
-        "ticker_symbol": "MSFT",
-        "period": "54mo",
-        "output_file_path": "dataspace/historical_data.csv"
-    }
-}

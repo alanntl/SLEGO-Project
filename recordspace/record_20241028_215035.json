@@ -1,7 +1,0 @@
-{
-    "func_finadvisor.get_history_metadata": {
-        "ticker_symbol": "MSFT",
-        "period": "1mo",
-        "output_file_path": "history_metadata.json"
-    }
-}

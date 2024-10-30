@@ -1,6 +1,0 @@
-{
-    "func_finadvisor.get_news": {
-        "ticker_symbol": "MSFT",
-        "output_file_path": "dataspace/news.json"
-    }
-}
