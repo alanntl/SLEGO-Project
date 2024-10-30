@@ -34,6 +34,7 @@ AutogluonModels/
 dataspace/
 recordspace/
 knowledgespace/
+recordspace/*.json
 
 
 
