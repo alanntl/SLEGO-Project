@@ -1,0 +1,50 @@
+{
+    "func_yfinance.import_marketdata_yahoo_csv": {
+        "ticker": "msft",
+        "start_date": "2023-10-30",
+        "end_date": "2024-10-29",
+        "output_file_path": "dataspace/dataset.csv"
+    },
+    "func_backtest.moving_avg_cross_signal": {
+        "input_file_path": "dataspace/dataset.csv",
+        "column": "Close",
+        "index_col": 0,
+        "short_ma_window": 10,
+        "long_ma_window": 50,
+        "output_file_path": "dataspace/moving_avg_cross_signal.csv"
+    },
+    "func_backtest.vbt_sginal_backtest": {
+        "input_signal_file": "dataspace/moving_avg_cross_signal.csv",
+        "price_col": "Close",
+        "entries_col": "Entries",
+        "exits_col": "Exits",
+        "freq": "D",
+        "output_stats_file": "dataspace/backtest_stats.csv",
+        "output_return_file": "dataspace/backtest_returns.csv"
+    },
+    "func_backtest.backtest_viz_with_quantstats": {
+        "input_file": "dataspace/backtest_returns.csv",
+        "output_file": "dataspace/quantstats_results.html",
+        "benchmark_file_path": "None",
+        "benchmark_col": "None",
+        "return_col": "returns",
+        "time_col": "Date",
+        "periods_per_year": 252,
+        "compounded": "True",
+        "rf": 0.02,
+        "mode": "full",
+        "title": "Backtest Report Comparing Against SPY Benchmark"
+    },
+    "func_finadvisor.universal_analyzer": {
+        "input_path": "quantstats_results.html",
+        "output_file": "dataspace/analysis_results.json",
+        "api_key": "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",
+        "system_role": "You are a highly skilled analyst with expertise in multiple domains.",
+        "analysis_task": "Analyze this content and provide key insights, patterns, and recommendations.",
+        "additional_instructions": "",
+        "model": "gpt-4o",
+        "max_tokens": 2000,
+        "temperature": 0.7,
+        "chunk_size": 4000
+    }
+}

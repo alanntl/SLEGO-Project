@@ -1,0 +1,6 @@
+{
+    "func_finadvisor.get_stock_info": {
+        "ticker_symbol": "MSFT",
+        "output_file_path": "dataspace/stock_info.json"
+    }
+}

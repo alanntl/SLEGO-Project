@@ -1,0 +1,9 @@
+{
+    "func_finadvisor.collect_fundamental_data": {
+        "tickers": [
+            "AAPL",
+            "MSFT"
+        ],
+        "output_file_path": "dataspace/fundamental_data.json"
+    }
+}

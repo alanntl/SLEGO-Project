@@ -1,0 +1,20 @@
+{
+    "func_finadvisor.get_historical_market_data": {
+        "ticker_symbol": "MSFT",
+        "period": "2yr",
+        "output_file_path": "dataspace/historical_data.csv"
+    },
+    "func_finadvisor.financial_advisor": {
+        "input_paths": "dataspace/historical_data.csv",
+        "output_file": "dataspace/financial_advice.json",
+        "api_key": "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",
+        "investment_context": "General investment analysis and recommendations",
+        "risk_profile": "Moderate",
+        "time_horizon": "Long-term (1+ years)",
+        "analysis_task": "Provide comprehensive investment analysis and recommendations",
+        "model": "gpt-4o",
+        "max_tokens": 2000,
+        "temperature": 0.7,
+        "consolidated_analysis": true
+    }
+}

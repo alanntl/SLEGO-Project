@@ -1,0 +1,6 @@
+{
+    "func_finadvisor.get_analyst_data": {
+        "ticker_symbol": "MSFT",
+        "output_file_path": "analyst_data.xlsx"
+    }
+}

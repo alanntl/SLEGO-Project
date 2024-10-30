@@ -20,3 +20,4 @@ yfinance
 
 python-dotenv
 python-docx
+nbconvert

@@ -31,14 +31,16 @@ credentials.json
 slegospace/AutogluonModels/
 
 # Ignore specific data folders if they are generated or shouldn't be tracked
-# slegospace/dataspace/
+slegospace/dataspace/
 slegospace/recordspace/
+slegospace/knowledgespace/
 
-# Environment setup files
-environment_setup.py
+
 
 # Ignore legacy files
 SLEGO_Legacy.ipynb
 
 # IDE specific files (e.g. VSCode)
 .vscode/
+
+exp.ipynb

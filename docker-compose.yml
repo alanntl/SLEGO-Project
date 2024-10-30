@@ -2,12 +2,27 @@ version: '3.8'
 
 services:
   slego_app:
-    build: .
-    container_name: slego_app_container
-    ports:
-      - "5006:5006"
+    container_name: slego_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
     volumes:
-      - ./slegospace:/workspace/slegospace
+      - .:/workspace
+    ports:
+      - "5006:5006"  # Map port 5006 of the host to port 5006 of the container
+    command: panel serve /workspace/app.py --allow-websocket-origin=* --port 5006
     environment:
-      PYTHONUNBUFFERED: "1"
-      JUPYTER_ENABLE_LAB: "yes"
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+    
+  redis:
+    container_name: redis
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+networks:
+  default:
+    driver: bridge

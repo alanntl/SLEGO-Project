@@ -30,9 +30,6 @@ RUN pip install --no-cache-dir -r requirements.txt \
     networkx \
     kglab
 
-# Convert Jupyter notebook to Python script
-RUN jupyter nbconvert --to script /workspace/SLEGO.ipynb --output /workspace/app.py
-
 # Expose the port used by Panel
 EXPOSE 5006
 

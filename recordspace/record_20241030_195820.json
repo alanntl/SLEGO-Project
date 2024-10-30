@@ -1,0 +1,8 @@
+{
+    "func_yfinance.compute_simple_moving_average": {
+        "input_file_path": "dataspace/dataset.csv",
+        "column_name": "Close",
+        "window_size": 20,
+        "output_file_path": "dataspace/dataset.csv"
+    }
+}
