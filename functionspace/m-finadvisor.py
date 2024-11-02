@@ -6,65 +6,62 @@ from typing import Union, Dict, Any, List
 from openai import OpenAI
 from bs4 import BeautifulSoup
 import yfinance as yf
+from yfinance import Ticker as si
+import datetime
+
+
 
 # =====================================
 # Internal Utility Functions
 # =====================================
 
 def __check_module(module_name: str) -> bool:
-    """Private function to check if a Python module is installed."""
+    """Checks if a Python module is installed."""
     import importlib.util
     return importlib.util.find_spec(module_name) is not None
 
-def __ensure_directory_exists(file_path: str) -> None:
-    """Private function to ensure directory exists."""
-    directory = os.path.dirname(file_path)
-    if directory and not os.path.exists(directory):
-        os.makedirs(directory)
+def __ensure_directory_exists(directory_path: str) -> None:
+    """Ensures the directory exists; creates it if it doesn’t."""
+    os.makedirs(directory_path, exist_ok=True)
 
 def __extract_text_from_html(html_content: str) -> str:
-    """Private function to extract text from HTML content."""
+    """Extracts and cleans text from HTML content by removing scripts and styles."""
     try:
+        from bs4 import BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
         for script in soup(["script", "style"]):
-            script.decompose()
+            script.decompose()  # Remove script and style elements
         return soup.get_text(separator='\n', strip=True)
     except Exception as e:
         raise ValueError(f"Error processing HTML: {str(e)}")
 
 def __read_file_content(file_path: str, installed_modules: Dict[str, bool]) -> str:
-    """Private function to read content from various file types."""
+    """Reads content from various file types; uses BeautifulSoup for HTML, pandas for CSV/Excel, pdfplumber for PDF, etc."""
     file_extension = os.path.splitext(file_path)[1].lower()
     
     try:
-        # Text files
         if file_extension == '.txt':
             with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()
         
-        # JSON files        
         elif file_extension == '.json':
             with open(file_path, 'r', encoding='utf-8') as f:
                 return json.dumps(json.load(f), indent=2)
         
-        # HTML files        
         elif file_extension == '.html':
             with open(file_path, 'r', encoding='utf-8') as f:
                 return __extract_text_from_html(f.read())
         
-        # PDF files        
         elif file_extension == '.pdf' and installed_modules.get('pdfplumber'):
             import pdfplumber
             with pdfplumber.open(file_path) as pdf:
                 return '\n'.join(page.extract_text() for page in pdf.pages if page.extract_text())
         
-        # Word documents        
         elif file_extension == '.docx' and installed_modules.get('docx'):
             import docx
             doc = docx.Document(file_path)
             return '\n'.join([para.text for para in doc.paragraphs if para.text.strip()])
         
-        # Spreadsheets        
         elif file_extension in ['.csv', '.xlsx'] and installed_modules.get('pandas'):
             df = pd.read_csv(file_path) if file_extension == '.csv' else pd.read_excel(file_path)
             return f"Data Summary:\n{df.describe().to_string()}\n\nPreview:\n{df.head().to_string()}\n\nShape: {df.shape}"
@@ -74,6 +71,11 @@ def __read_file_content(file_path: str, installed_modules: Dict[str, bool]) -> s
             
     except Exception as e:
         raise ValueError(f"Error reading {file_extension} file: {str(e)}")
+
+
+# =====================================
+# OpenAI Content Analysis Functions
+# =====================================
 
 def __analyze_content(client: OpenAI, content: str, filename: str, 
                      system_role: str, analysis_task: str, 
@@ -137,60 +139,6 @@ Previous analyses:
     except Exception as e:
         return f"Error during analysis: {str(e)}"
 
-# =====================================
-# YFinance Data Functions
-# =====================================
-
-def get_stock_info(ticker_symbol: str = 'MSFT', output_file_path: str = 'dataspace/stock_info.json') -> str:
-    """Retrieves stock information and saves to JSON."""
-    __ensure_directory_exists(output_file_path)
-    try:
-        ticker = yf.Ticker(ticker_symbol)
-        info = ticker.info
-        with open(output_file_path, 'w', encoding='utf-8') as f:
-            json.dump(info, f, indent=4)
-        return output_file_path
-    except Exception as e:
-        return f"Error retrieving stock info: {str(e)}"
-
-def get_historical_market_data(ticker_symbol: str = 'MSFT', period: str = '1mo', 
-                             output_file_path: str = 'dataspace/historical_data.csv') -> str:
-    """Retrieves historical market data and saves to CSV."""
-    __ensure_directory_exists(output_file_path)
-    try:
-        ticker = yf.Ticker(ticker_symbol)
-        hist = ticker.history(period=period)
-        hist.to_csv(output_file_path)
-        return output_file_path
-    except Exception as e:
-        return f"Error retrieving historical data: {str(e)}"
-
-def get_financials(ticker_symbol: str = 'MSFT', output_file_path: str = 'dataspace/financials.xlsx') -> str:
-    """Retrieves financial statements and saves to Excel."""
-    __ensure_directory_exists(output_file_path)
-    try:
-        ticker = yf.Ticker(ticker_symbol)
-        financials = {
-            'Income_Statement': ticker.income_stmt,
-            'Balance_Sheet': ticker.balance_sheet,
-            'Cashflow': ticker.cashflow,
-            'Quarterly_Income_Statement': ticker.quarterly_income_stmt,
-            'Quarterly_Balance_Sheet': ticker.quarterly_balance_sheet,
-            'Quarterly_Cashflow': ticker.quarterly_cashflow
-        }
-        with pd.ExcelWriter(output_file_path) as writer:
-            for sheet_name, df in financials.items():
-                if df is not None and not df.empty:
-                    df.to_excel(writer, sheet_name=sheet_name)
-        return output_file_path
-    except Exception as e:
-        return f"Error retrieving financials: {str(e)}"
-
-# Add other YFinance functions as needed...
-
-# =====================================
-# Analysis Functions
-# =====================================
 
 def universal_analyzer(
     input_paths: Union[str, List[str]] = 'dataspace/input/',
@@ -369,45 +317,205 @@ def financial_advisor(
     - temperature: Response creativity (0-1)
     - consolidated_analysis: Whether to provide a consolidated analysis of all documents
     """
-    return universal_analyzer(
-        input_paths=input_paths,
-        output_file=output_file,
-        api_key=api_key,
-        system_role="""You are a highly experienced financial advisor with expertise in:
-        - Investment analysis and portfolio management
-        - Market analysis and trend identification
-        - Risk assessment and management
-        - Financial planning and strategy development""",
-        analysis_task=f"""Investment Context: {investment_context}
-Risk Profile: {risk_profile}
-Time Horizon: {time_horizon}
+    return universal_analyzer(  input_paths=input_paths,
+                                output_file=output_file,
+                                api_key=api_key,
+                                system_role="""You are a highly experienced financial advisor with expertise in:
+                                - Investment analysis and portfolio management
+                                - Market analysis and trend identification
+                                - Risk assessment and management
+                                - Financial planning and strategy development""",
+                                analysis_task=f"""Investment Context: {investment_context}
+                        Risk Profile: {risk_profile}
+                        Time Horizon: {time_horizon}
 
-{analysis_task}""",
-        additional_instructions="""Provide thorough, professional analysis considering:
-- The client's risk profile and investment goals
-- Current market conditions and trends
-- Potential risks and mitigation strategies
-- Long-term investment implications""",
-        model=model,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        consolidated_analysis=consolidated_analysis
-    )
-# # Example usage
-# if __name__ == "__main__":
-#     # Set your OpenAI API key
-#     api_key = "your-api-key"
+                        {analysis_task}""",
+                                additional_instructions="""Provide thorough, professional analysis considering:
+                        - The client's risk profile and investment goals
+                        - Current market conditions and trends
+                        - Potential risks and mitigation strategies
+                        - Long-term investment implications""",
+                                model=model,
+                                max_tokens=max_tokens,
+                                temperature=temperature,
+                                consolidated_analysis=consolidated_analysis
+                            )
+
+
+# =====================================
+# YFinance Data Functions
+# =====================================
+
+import pandas as pd
+import yfinance as yf
+import os
+from datetime import datetime
+
+def get_all_financial_data(
+    ticker_symbol: str = 'MSFT',
+    period_for_market_data: str = '1y',
+    output_folder: str = 'dataspace/financials',
+    save_as_excel: bool = True
+) -> dict:
+    """
+    Fetches comprehensive financial data for a given stock ticker and saves it to files.
     
-#     # Example: Analyze stock information
-#     stock_info_path = get_stock_info('AAPL')
+    Parameters:
+    -----------
+    ticker_symbol : str
+        The stock ticker symbol (e.g., 'MSFT' for Microsoft)
+    period_for_market_data : str
+        The period for historical data (e.g., '1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max')
+    output_folder : str
+        The folder where output files will be saved
+    save_as_excel : bool
+        If True, saves data to Excel file; if False, saves to separate CSV files
     
-#     # Example: Analyze the stock information file
-#     analysis = financial_advisor(
-#         input_path=stock_info_path,
-#         api_key=api_key,
-#         investment_context="Evaluating Apple Inc. for long-term investment",
-#         risk_profile="Moderate",
-#         time_horizon="5-10 years"
-#     )
+    Returns:
+    --------
+    dict
+        Dictionary containing all the collected financial data
+    """
     
-#     print(analysis)
+    # Create the output folder if it doesn't exist
+    os.makedirs(output_folder, exist_ok=True)
+    
+    # Initialize the Ticker object
+    ticker = yf.Ticker(ticker_symbol)
+    
+    # Dictionary to hold all data
+    data = {}
+    
+    # Helper function to convert DataFrame to timezone-naive
+    def make_timezone_naive(df):
+        if not isinstance(df, pd.DataFrame):
+            if isinstance(df, pd.Series):
+                df = df.to_frame()
+            else:
+                return df
+                
+        # Convert index if it's datetime with timezone
+        if isinstance(df.index, pd.DatetimeIndex) and df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+        
+        # Convert columns with timezones
+        for col in df.select_dtypes(include=['datetime64[ns, UTC]', 'datetimetz']).columns:
+            df[col] = df[col].dt.tz_localize(None)
+            
+        # Convert any datetime objects in object columns
+        for col in df.select_dtypes(include=['object']).columns:
+            try:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    df[col] = pd.to_datetime(df[col]).dt.tz_localize(None)
+            except:
+                continue
+                
+        return df
+
+    # Helper function to safely fetch and process data
+    def safe_fetch(data_name, fetch_func):
+        try:
+            result = fetch_func()
+            if isinstance(result, (pd.DataFrame, pd.Series)):
+                return make_timezone_naive(result)
+            elif isinstance(result, dict):
+                df = pd.DataFrame.from_dict(result, orient='index', columns=['Value'])
+                return make_timezone_naive(df)
+            elif result is not None:
+                df = pd.DataFrame([result])
+                return make_timezone_naive(df)
+            return pd.DataFrame()
+        except Exception as e:
+            print(f"Warning: Failed to fetch {data_name}: {str(e)}")
+            return pd.DataFrame()
+
+    # Fetch and store various data
+    data_fetchers = {
+        'info': lambda: pd.DataFrame.from_dict(ticker.info, orient='index', columns=[ticker_symbol]),
+        'history': lambda: ticker.history(period=period_for_market_data),
+        'news': lambda: pd.DataFrame(ticker.news),
+        'actions': lambda: ticker.actions if not isinstance(ticker.actions, pd.Series) else ticker.actions.to_frame(),
+        'dividends': lambda: ticker.dividends.to_frame() if not ticker.dividends.empty else pd.DataFrame(),
+        'splits': lambda: ticker.splits.to_frame() if not ticker.splits.empty else pd.DataFrame(),
+        'capital_gains': lambda: ticker.capital_gains.to_frame() if not ticker.capital_gains.empty else pd.DataFrame(),
+        #pd.DataFrame(ticker.calendar)
+        'calendar': lambda: pd.DataFrame(ticker.calendar),
+        # sec_filings
+        'sec_filings': lambda: pd.DataFrame(ticker.sec_filings),
+
+
+
+        'income_statement': lambda: ticker.income_stmt.transpose(),
+        'quarterly_income_statement': lambda: ticker.quarterly_income_stmt.transpose(),
+        'balance_sheet': lambda: ticker.balance_sheet.transpose(),
+        'quarterly_balance_sheet': lambda: ticker.quarterly_balance_sheet.transpose(),
+        'cashflow': lambda: ticker.cashflow.transpose(),
+        'quarterly_cashflow': lambda: ticker.quarterly_cashflow.transpose(),
+
+
+        'major_holders': lambda: ticker.major_holders,
+        'institutional_holders': lambda: ticker.institutional_holders,
+        'mutualfund_holders': lambda: ticker.mutualfund_holders,
+         #msft.insider_transactions
+        'insider_transactions': lambda: ticker.insider_transactions,
+        #msft.insider_purchases
+        'insider_purchases': lambda: ticker.insider_purchases,
+        #msft.insider_roster_holders
+        'insider_roster_holders': lambda: ticker.insider_roster_holders,
+
+        'sustainability': lambda: ticker.sustainability.transpose(),
+        'recommendations': lambda: ticker.recommendations,
+        'recommendations_summary': lambda: ticker.recommendations_summary,
+        #msft.upgrades_downgrades
+        'upgrades_downgrades': lambda: ticker.upgrades_downgrades,
+        'analyst_price_targets': lambda: ticker.analyst_price_targets,
+        'earnings_estimate': lambda: ticker.earnings_estimate,
+        'revenue_estimate': lambda: ticker.revenue_estimate,
+        'earnings_history': lambda: ticker.earnings_history,
+        'eps_trend': lambda: ticker.eps_trend,
+        'eps_revisions': lambda: ticker.eps_revisions,
+        'growth_estimates': lambda: ticker.growth_estimates,
+        
+        'earnings_dates': lambda: ticker.earnings_dates,
+        #msft.isin
+        'ISIN' : lambda: pd.DataFrame([{'ISIN': ticker.isin}]),
+        #msft.news
+        
+
+
+    }
+
+    # Fetch all data
+    for key, fetcher in data_fetchers.items():
+        data[key] = safe_fetch(key, fetcher)
+
+    if save_as_excel:
+        # Save all data to a single Excel file with multiple sheets
+        excel_path = os.path.join(output_folder, f"{ticker_symbol}_data.xlsx")
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            for key, df in data.items():
+                if not df.empty:
+                    try:
+                        # Double-check timezone conversion before saving
+                        df = make_timezone_naive(df)
+                        # Truncate sheet name to Excel's 31 character limit
+                        sheet_name = key[:31]
+                        df.to_excel(writer, sheet_name=sheet_name, index=True)
+                        print(f"Successfully saved sheet: {key}")
+                    except Exception as e:
+                        print(f"Warning: Failed to save sheet {key}: {str(e)}")
+        print(f"All data saved to {excel_path}")
+    else:
+        # Save each part of the data to separate CSV files
+        for key, df in data.items():
+            if not df.empty:
+                try:
+                    # Double-check timezone conversion before saving
+                    df = make_timezone_naive(df)
+                    csv_path = os.path.join(output_folder, f"{ticker_symbol}_{key}.csv")
+                    df.to_csv(csv_path, index=True)
+                    print(f"{key} data saved to {csv_path}")
+                except Exception as e:
+                    print(f"Warning: Failed to save {key} to CSV: {str(e)}")
+
+    return data

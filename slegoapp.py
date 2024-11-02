@@ -12,6 +12,7 @@ import importlib
 from datetime import datetime
 from typing import Dict, Any
 import rdflib
+import asyncio
 #import slegospace.util as util
 from IPython.display import Javascript, display
 
@@ -406,6 +407,7 @@ class SLEGOApp:
                 self.output_text.value += f"\n===== {func_key} =====\n\n"
                 self.output_text.value += f"Error occurred: {str(e)}\n"
                 logger.error(f"Error computing {func_key}: {e}")
+            self.refresh_file_table()
 
         self.save_record('recordspace', pipeline_dict)
         self.progress_text.value = 'Done!'
