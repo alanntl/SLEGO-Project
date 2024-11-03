@@ -160,9 +160,10 @@ class SLEGOApp:
         self.file_delete = pn.widgets.Button(name='Delete', height=35)
         self.file_table = self.create_file_table()
 
-        self.widget_tab = pn.Tabs(
+        self.param_widget_tab = pn.Tabs(
             ('JSON Input', self.json_editor), 
-            ('Text Input', self.input_text)
+            ('Text Input', self.input_text),
+            scroll=True,
         )
         self.ontology_btn = pn.widgets.Button(name='Show Ontology', height=35)
 
@@ -218,15 +219,18 @@ class SLEGOApp:
 
     def create_layout(self):
         logger.info("Creating layout...")
-        widget_input = pn.Column(
-            pn.layout.Divider(height=10, margin=(10)), 
-            self.widget_tab
+        param_widget_input = pn.Column(
+            #pn.layout.Divider(height=10, margin=(10)), 
+            self.param_widget_tab,
+            scroll=True,
+            
         )
         widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, self.ontology_btn)
         widget_updownload = pn.Column(
             pn.Row(self.file_view, self.file_download),
             self.file_input,
-            pn.Row(self.file_upload, self.file_delete)
+            pn.Row(self.file_upload, self.file_delete,),
+            scroll=True,
         )
         widget_files = pn.Column(
             self.folder_select,
@@ -234,28 +238,42 @@ class SLEGOApp:
             pn.layout.Divider(height=10, margin=(10)),
             self.file_table,
             widget_updownload,
-            width=300, scroll=True
+            #width=300, 
+            scroll=True,
         )
         widget_funcsel = pn.Column(
             self.funcfilecombo, 
             self.funccombo_pane,  # Use the placeholder here
             self.compute_btn, 
             widget_btns,
-            min_width=300
+            #min_width=300
+            scroll=True,
         )
 
         # Added recommendation widgets to the layout
-        widget_recom = pn.Row(self.recommendation_btn, self.recomAPI_text)
+        widget_recom = pn.Column(pn.Row(self.recommendation_btn, self.recomAPI_text),
+                                    self.progress_text,  
+                                    scroll=True,)
         self.app = pn.Row(
-            widget_files,
-            pn.Column(widget_funcsel, widget_input, min_width=600, scroll=True),
+            pn.Column(widget_files,
+                      min_width=200, 
+                      max_width=300),
+            pn.Column(widget_funcsel, 
+                      self.output_text,
+                      min_height=300,
+                      min_width=300,
+                      scroll=True),  
+
             pn.Column(
-                widget_recom, 
-                self.progress_text, 
+                pn.Column(param_widget_input,min_height=300,scroll=True),  
                 pn.layout.Divider(height=10, margin=(10)), 
-                self.output_text
+                pn.Column(widget_recom, scroll=True),  
+                min_height=300,
+                min_width=300,
+                               
             ), 
-            min_width=600, scroll=True
+ 
+            scroll=True,
         )
         logger.info("Layout created.")
 
@@ -345,7 +363,7 @@ class SLEGOApp:
 
     def json_toggle_clicked(self, event):
         logger.info(f"JSON toggle clicked: {event.new}")
-        self.widget_tab.active = 1 if event.new else 0
+        self.param_widget_tab.active = 1 if event.new else 0
 
     def json_editor_change(self, event):
         logger.info("JSON editor changed.")
@@ -562,7 +580,7 @@ class SLEGOApp:
 
     def create_multi_select_combobox(self, funcs):
         options = list(funcs.keys())
-        multi_combobox = pn.widgets.MultiChoice(name='Functions:', options=options, height=150)
+        multi_combobox = pn.widgets.MultiChoice(name='Select Components:', options=options, height=150)
         return multi_combobox
 
     def extract_parameter(self, func):
