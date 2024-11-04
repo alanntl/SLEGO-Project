@@ -114,11 +114,11 @@ class SLEGOApp:
         self.pipeline_text = pn.widgets.TextInput(value='', placeholder='Input Pipeline Name', height=35)
         self.json_toggle = pn.widgets.Toggle(name='Input mode: text or form', height=35, button_type='warning')
         self.json_editor = pn.widgets.JSONEditor(value={}, mode='form')
-        self.input_text = pn.widgets.TextAreaInput(value='', placeholder='Input the parameters')
-        self.progress_text = pn.widgets.TextAreaInput(
+        self.json_text = pn.widgets.TextAreaInput(value='', placeholder='Input the parameters')
+        self.input_text = pn.widgets.TextAreaInput(
             value='', 
-            placeholder='Input your analytics query here', 
-            name='User query inputs for recommendation or SPARQL:', 
+            placeholder='User query inputs for recommendation or SPARQL or system messages:', 
+            name='User inputs:', 
             height=150
         )
         self.output_text = pn.widgets.TextAreaInput(
@@ -162,7 +162,7 @@ class SLEGOApp:
 
         self.param_widget_tab = pn.Tabs(
             ('JSON Input', self.json_editor), 
-            ('Text Input', self.input_text),
+            ('Text Input', self.json_text),
             scroll=True,
         )
         self.ontology_btn = pn.widgets.Button(name='Show Ontology', height=35)
@@ -200,7 +200,7 @@ class SLEGOApp:
         # Remove old funccombo watcher if it exists
         if hasattr(self, 'funccombo'):
             self.funccombo.param.watch(self.funccombo_change, 'value')
-        self.input_text.param.watch(self.input_text_change, 'value')
+        self.json_text.param.watch(self.json_text_change, 'value')
         self.json_toggle.param.watch(self.json_toggle_clicked, 'value')
         self.json_editor.param.watch(self.json_editor_change, 'value')
         self.compute_btn.on_click(self.compute_btn_clicked)
@@ -252,7 +252,7 @@ class SLEGOApp:
 
         # Added recommendation widgets to the layout
         widget_recom = pn.Column(pn.Row(self.recommendation_btn, self.recomAPI_text),
-                                    self.progress_text,  
+                                    self.input_text,  
                                     scroll=True,)
         self.app = pn.Row(
             pn.Column(widget_files,
@@ -342,19 +342,19 @@ class SLEGOApp:
         funcs_params = dict(zip(list_funcs, list_params))
         formatted_data = json.dumps(funcs_params, indent=4)
         self.json_editor.value = funcs_params
-        self.input_text.value = formatted_data
+        self.json_text.value = formatted_data
         self.output_text.value = self.get_doc_string(formatted_data)
         
         #self.json_editor.expand_all()
 
-    def input_text_change(self, event):
+    def json_text_change(self, event):
         logger.info("Input text changed.")
-        text = re.sub(r'\bfalse\b', 'False', self.input_text.value, flags=re.IGNORECASE)
+        text = re.sub(r'\bfalse\b', 'False', self.json_text.value, flags=re.IGNORECASE)
         text = text.replace("'", '"')
         try:
             pipeline_dict = json.loads(text)
             pipeline_dict_json = json.dumps(pipeline_dict, indent=4)
-            self.input_text.value = pipeline_dict_json
+            self.json_text.value = pipeline_dict_json
             self.json_editor.value = json.loads(pipeline_dict_json)
             self.output_text.value += '\nInput changed!'
         except ValueError as e:
@@ -368,13 +368,13 @@ class SLEGOApp:
     def json_editor_change(self, event):
         logger.info("JSON editor changed.")
         text = json.dumps(self.json_editor.value, indent=4)
-        self.input_text.value = text
+        self.json_text.value = text
 
     def recommendation_btn_clicked(self, event):
         logger.info("Recommendation button clicked.")
         self.output_text.value = 'Asking AI for recommendation: \n'
         user_pipeline = self.json_editor.value
-        user_query = self.progress_text.value
+        user_query = self.input_text.value
         db_path = os.path.join(self.folder_path, 'KB.db')
         openai_api_key = self.recomAPI_text.value
 
@@ -402,14 +402,14 @@ class SLEGOApp:
 
     def compute_btn_clicked(self, event):
         logger.info("Compute button clicked.")
-        self.progress_text.value = 'Computing...'
+        self.input_text.value = 'Computing...'
         pipeline_dict = self.json_editor.value
         self.output_text.value = ''
         logger.info(f"Pipeline dict: {pipeline_dict}")
 
         for func_key, parameters in pipeline_dict.items():
             logger.info(f"Computing {func_key} with parameters {parameters}")
-            self.progress_text.value = f'Computing {func_key}...'
+            self.input_text.value = f'Computing {func_key}...'
             try:
                 start_time = time.time()
                 function = self.funcs[func_key]
@@ -428,7 +428,7 @@ class SLEGOApp:
             self.refresh_file_table()
 
         self.save_record('recordspace', pipeline_dict)
-        self.progress_text.value = 'Done!'
+        self.input_text.value = 'Done!'
         self.on_filefolder_confirm_btn_click(None)
         self.refresh_file_table()
 
@@ -442,7 +442,7 @@ class SLEGOApp:
         logger.info("Save pipeline button clicked.")
         pipeline_name = self.pipeline_text.value if self.pipeline_text.value else '__'
         # Replace JavaScript-style JSON values with Python-compatible values
-        text = self.input_text.value
+        text = self.json_text.value
         text = re.sub(r'\bfalse\b', '0', text, flags=re.IGNORECASE)
         text = re.sub(r'\btrue\b', '1', text, flags=re.IGNORECASE)
         text = re.sub(r'\bnull\b', 'None', text, flags=re.IGNORECASE)
@@ -531,7 +531,21 @@ class SLEGOApp:
                 elif event.obj.name == 'Upload':
                     self.output_text.value = 'Please use the file input widget to upload!'
                 elif event.obj.name == 'Delete':
-                    self.output_text.value = 'Delete functionality is not implemented.'
+                    # Confirm deletion
+                    self.output_text = (f"Are you sure you want to delete '{filename}'? Enter yes in User inputs section! ")
+                    confirm_delete = self.input_text.value
+                    if confirm_delete.lower() == 'yes':
+                        try:
+                            os.remove(file_path)
+                            self.output_text.value += f"\nDeleted file: {filename}"
+                            logger.info(f"Deleted file: {filename}")
+                            self.refresh_file_table()  # Refresh table after deletion
+                        except Exception as e:
+                            self.output_text.value += f"\nError deleting file {filename}: {e}"
+                            logger.error(f"Error deleting file {filename}: {e}")
+                    else:
+                        self.output_text.value += f"\nDeletion of '{filename}' canceled."
+                        logger.info(f"Deletion of '{filename}' canceled.")
         else:
             self.output_text.value = 'Please select a file to perform the action.'
 
@@ -786,7 +800,7 @@ class SLEGOApp:
 
     def ontology_btn_click(self, event):
 
-        sparql_query = self.progress_text.value.strip()  # Ensure no leading/trailing spaces
+        sparql_query = self.input_text.value.strip()  # Ensure no leading/trailing spaces
         if not sparql_query:
             self.output_text.value = "Error: No SPARQL query provided. Please input a valid query."
             logger.error("No SPARQL query provided.")
@@ -806,6 +820,44 @@ class SLEGOApp:
         Args:
             modules (list): List of modules to load.
         """
+
+
+        # Software Introduction section
+        software_intro = pn.pane.Markdown("""
+        # Software Introduction
+
+        **SLEGO (Software-Lego)** is a collaborative analytics platform designed to bridge the gap between experienced developers and novice users. It leverages a cloud-based environment with modular, reusable microservices, enabling developers to share their analytical tools and workflows. Novice users can construct comprehensive analytics pipelines through an intuitive graphical user interface (GUI) without requiring programming skills. Supported by a knowledge base and a Large Language Model (LLM) powered recommendation system, SLEGO enhances the selection and integration of microservices, increasing the efficiency of analytics pipeline construction.
+
+        **Key Features:**
+        - **Modular Microservices:** Share and integrate analytical tools and workflows seamlessly.
+        - **User-Friendly GUI:** Build analytics pipelines through a simple drag-and-drop interface.
+        - **LLM-Powered Recommendations:** Enhance microservice selection and integration with AI-driven guidance.
+        - **Collaborative Environment:** Promote resource reusability and team collaboration.
+
+        For more detailed information, refer to the [SLEGO paper](https://arxiv.org/abs/2406.11232).
+        """, min_width=600)
+
+        # About the Creator section
+        creator_info = pn.pane.Markdown("""
+        # About the Creator
+
+        **Siu Lung Ng** is a PhD student at the School of Computer Science and Engineering, University of New South Wales (UNSW), Sydney, Australia. Under the supervision of Professor Fethi Rabhi, his research focuses on developing collaborative analytics platforms that democratize data analytics by integrating modular design, knowledge bases, and recommendation systems, fostering a more inclusive and efficient analytical environment.
+        """, min_width=600)
+
+
+        # Main application content (placeholder)
+        main_content = pn.pane.Markdown("""
+        # Main Application
+
+        This is the main content area of the application.
+        """)
+
+        
+        main_tabs = pn.Tabs(('SLEGO-App',self.app),
+            ('Software Introduction', software_intro),
+            ('About the Creator', creator_info),
+            scroll=True)
+
         logger.info("Running the app...")
         if modules:
             logger.info(f"Loading specified modules: {modules}")
@@ -813,12 +865,16 @@ class SLEGOApp:
             self.funcfilecombo.value = modules   
             #self.update_func_module(modules)
 
+
         if not self.is_colab_runtime():
             template = pn.template.MaterialTemplate(
                 title='SLEGO - Software Lego: A Collaborative and Modular Architecture for Data Analytics',
-                sidebar=[],
+                #sidebar=[sidebar_tabs],
             )
-            template.main.append(self.app)
+            template.main.append(main_tabs)
+            template.sidebar,
+            # template.collapsed_sidebar = True
+            
             template.show()
             template.servable()
             logger.info("App is running in non-Colab environment.")
