@@ -118,7 +118,7 @@ class SLEGOApp:
         self.input_text = pn.widgets.TextAreaInput(
             value='', 
             placeholder='User query inputs for recommendation or SPARQL or system messages:', 
-            name='User inputs:', 
+            name='User input:', 
             height=150
         )
         self.output_text = pn.widgets.TextAreaInput(
@@ -273,7 +273,7 @@ class SLEGOApp:
                                
             ), 
  
-            scroll=True,
+            scroll=True,margin=(10, 0, 0, 0),
         )
         logger.info("Layout created.")
 
@@ -532,20 +532,17 @@ class SLEGOApp:
                     self.output_text.value = 'Please use the file input widget to upload!'
                 elif event.obj.name == 'Delete':
                     # Confirm deletion
-                    self.output_text = (f"Are you sure you want to delete '{filename}'? Enter yes in User inputs section! ")
-                    confirm_delete = self.input_text.value
-                    if confirm_delete.lower() == 'yes':
-                        try:
-                            os.remove(file_path)
-                            self.output_text.value += f"\nDeleted file: {filename}"
-                            logger.info(f"Deleted file: {filename}")
-                            self.refresh_file_table()  # Refresh table after deletion
-                        except Exception as e:
-                            self.output_text.value += f"\nError deleting file {filename}: {e}"
-                            logger.error(f"Error deleting file {filename}: {e}")
+                    self.output_text.value = 'Are you sure you want to delete the selected file(s)? Please type "delete" in the user input textbox.'
+                    #user input type are delete:
+                    if self.input_text.value == 'delete':
+                        os.remove(file_path)
+                        self.output_text.value += f"\nDeleted file: {filename}"
+                        logger.info(f"Deleted file: {filename}")
+                        self.refresh_file_table()  # Refresh table after deletion
                     else:
-                        self.output_text.value += f"\nDeletion of '{filename}' canceled."
-                        logger.info(f"Deletion of '{filename}' canceled.")
+                        #self.output_text.value += f"\nDeletion cancelled."
+                        logger.info(f"Deletion cancelled.")
+    
         else:
             self.output_text.value = 'Please select a file to perform the action.'
 
@@ -856,7 +853,7 @@ class SLEGOApp:
         main_tabs = pn.Tabs(('SLEGO-App',self.app),
             ('Software Introduction', software_intro),
             ('About the Creator', creator_info),
-            scroll=True)
+            scroll=True, )
 
         logger.info("Running the app...")
         if modules:
