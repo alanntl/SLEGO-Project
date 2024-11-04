@@ -352,10 +352,10 @@ import os
 from datetime import datetime
 
 def get_all_financial_data(
-    ticker_symbol: str = 'MSFT',
+    ticker_symbol: str = 'TSLA',
     period_for_market_data: str = '1y',
     output_folder: str = 'dataspace/financials',
-    save_as_excel: bool = True
+    save_as_excel: bool = False
 ) -> dict:
     """
     Fetches comprehensive financial data for a given stock ticker and saves it to files.
@@ -491,7 +491,7 @@ def get_all_financial_data(
 
     if save_as_excel:
         # Save all data to a single Excel file with multiple sheets
-        excel_path = os.path.join(output_folder, f"{ticker_symbol}_data.xlsx")
+        excel_path = os.path.join(output_folder, f"financials_data.xlsx")
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
             for key, df in data.items():
                 if not df.empty:
@@ -512,10 +512,159 @@ def get_all_financial_data(
                 try:
                     # Double-check timezone conversion before saving
                     df = make_timezone_naive(df)
-                    csv_path = os.path.join(output_folder, f"{ticker_symbol}_{key}.csv")
+                    csv_path = os.path.join(output_folder, f"financials_{key}.csv")
                     df.to_csv(csv_path, index=True)
                     print(f"{key} data saved to {csv_path}")
                 except Exception as e:
                     print(f"Warning: Failed to save {key} to CSV: {str(e)}")
 
     return data
+
+
+
+
+
+import pandas as pd
+import json
+from openai import OpenAI
+
+def generate_financial_risk_analysis(user_prompt= "Please analyze the financial risks.",
+                                     api_key= None,
+                                     income_statement_file= 'dataspace/financials/financials_income_statement.csv', 
+                                     balance_sheet_file= 'dataspace/financials/financials_balance_sheet.csv', 
+                                     cash_flow_file = 'dataspace/financials/financials_cashflow.csv',
+                                     output_file = 'dataspace/financial_risk_analysis.json', 
+                                     model="gpt-4o",
+                                     temperature=0.7, 
+                                     max_tokens=2048, 
+                                     top_p=1):
+    # Initialize OpenAI client
+    client = OpenAI(api_key=api_key)
+
+    # Load financial reports
+    income_statement = pd.read_csv(income_statement_file)
+    balance_sheet = pd.read_csv(balance_sheet_file)
+    cash_flow = pd.read_csv(cash_flow_file)
+
+    # Convert DataFrames to JSON strings
+    income_statement_json = income_statement.to_json(orient='records')
+    balance_sheet_json = balance_sheet.to_json(orient='records')
+    cash_flow_json = cash_flow.to_json(orient='records')
+
+    # System prompt setup for financial analysis
+    system_prompt = {
+        "role": "system",
+        "content": """
+You are a financial analyst AI that conducts comprehensive risk analysis based on provided financial data.
+
+# Instructions
+
+- Analyze the provided income statement, balance sheet, and cash flow statement data.
+- Identify potential financial risks, assess their severity and likelihood, and propose mitigation strategies.
+- Consider all aspects of the data, including trends over time.
+
+# Output Format
+
+Provide the output as a structured list in JSON format, where each risk includes:
+
+- "section_name": The financial statement section ("Income Statement", "Balance Sheet", "Cash Flow", or "Overall").
+- "risk_name": Short title of the risk.
+- "description": Detailed description of the risk.
+- "severity": Evaluation of severity (e.g., Low, Medium, High).
+- "likelihood": Likelihood of the risk occurring (e.g., Low, Medium, High).
+- "mitigation": Suggested mitigation strategies.
+
+# Note
+
+- Focus on risks that are evident from the data.
+- Ensure the analysis is based on the data provided.
+        """
+    }
+
+    # Prepare the data to be included in the user prompt
+    financial_data_prompt = f"""
+The company's financial data is as follows:
+
+- **Income Statement Data**:
+{income_statement_json}
+
+- **Balance Sheet Data**:
+{balance_sheet_json}
+
+- **Cash Flow Data**:
+{cash_flow_json}
+
+{user_prompt}
+    """
+
+    user_prompt_data = {
+        "role": "user",
+        "content": financial_data_prompt
+    }
+
+    # Call the OpenAI API
+    response = client.chat.completions.create(
+        model=model,
+        messages=[system_prompt, user_prompt_data],
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+
+    # Extract JSON content from the response
+    try:
+        # Access the 'content' attribute directly
+        content = response.choices[0].message.content.strip("```json\n").strip("\n```")
+        # Parse the content to JSON
+        analysis_data = json.loads(content)
+    except json.JSONDecodeError:
+        print("Failed to decode JSON from the response. Here is the raw response:")
+        print(content)
+        return
+
+    # Save to JSON file
+    with open(output_file, 'w') as f:
+        json.dump(analysis_data, f, indent=4)
+
+    print(f"Financial risk analysis saved to {output_file}")
+
+
+
+import json
+import csv
+
+def json_to_csv(json_file ='dataspace/financial_risk_analysis.json', 
+                output_csv_file ='dataspace/financial_risk_analysis.csv' ):
+    """
+    Converts a JSON file to a CSV file.
+    
+    Parameters:
+    - json_file: Path to the JSON file containing data.
+    - output_csv_file: Path to the output CSV file.
+    """
+    # Load JSON data from the file
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+
+    # Open the CSV file for writing
+    with open(output_csv_file, 'w', newline='') as csvfile:
+        # Get the field names from the keys of the first dictionary in the JSON list
+        fieldnames = data[0].keys()
+        
+        # Create the CSV writer object
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
+        # Write the header
+        writer.writeheader()
+        
+        # Write each dictionary in the JSON data as a row in the CSV
+        for row in data:
+            writer.writerow(row)
+    
+    return "Data successfully converted to CSV and saved to {output_csv_file}"
+
+# Example usage
+json_to_csv('dataspace/financial_risk_analysis.json', 
+            'dataspace/financial_risk_analysis.csv')

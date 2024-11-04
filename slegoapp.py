@@ -432,17 +432,35 @@ class SLEGOApp:
         self.on_filefolder_confirm_btn_click(None)
         self.refresh_file_table()
 
+    import re
+    import json
+    import logging
+
+    
+
     def save_pipeline(self, event):
         logger.info("Save pipeline button clicked.")
         pipeline_name = self.pipeline_text.value if self.pipeline_text.value else '__'
-        text = re.sub(r'\bfalse\b', 'False', self.input_text.value, flags=re.IGNORECASE)
+        # Replace JavaScript-style JSON values with Python-compatible values
+        text = self.input_text.value
+        text = re.sub(r'\bfalse\b', '0', text, flags=re.IGNORECASE)
+        text = re.sub(r'\btrue\b', '1', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bnull\b', 'None', text, flags=re.IGNORECASE)
+        
+        # Debugging: Print the processed text to verify JSON format
+        logger.debug(f"Processed JSON text: {text}")
+        
         try:
+            # Parse the updated text as JSON
             data = json.loads(text)
+            
+            # Save the record using the pipeline_name and data
             self.save_record('knowledgespace', data, pipeline_name)
             self.on_filefolder_confirm_btn_click(None)
         except Exception as e:
             logger.error(f"Error saving pipeline: {e}")
             self.output_text.value += f"\nError saving pipeline: {e}"
+
 
 
     def open_with_default_app(self, file_path):
