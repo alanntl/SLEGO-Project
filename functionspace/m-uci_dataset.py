@@ -1,4 +1,5 @@
 from ucimlrepo import fetch_ucirepo 
+import pandas as pd
 def fetch_uci_dataset(uci_data_id:int=360, 
                       output_file_path:str='dataspace/AirQuality.csv'):
 

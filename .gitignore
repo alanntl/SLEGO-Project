@@ -35,7 +35,7 @@ dataspace/
 recordspace/
 knowledgespace/
 recordspace/*.json
-
+catboost_info/
 
 
 # Ignore legacy files
