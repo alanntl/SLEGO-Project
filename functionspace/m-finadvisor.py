@@ -665,6 +665,6 @@ def json_to_csv(json_file ='dataspace/financial_risk_analysis.json',
     
     return "Data successfully converted to CSV and saved to {output_csv_file}"
 
-# Example usage
-json_to_csv('dataspace/financial_risk_analysis.json', 
-            'dataspace/financial_risk_analysis.csv')
+# # Example usage
+# json_to_csv('dataspace/financial_risk_analysis.json', 
+#             'dataspace/financial_risk_analysis.csv')
