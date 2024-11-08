@@ -15,6 +15,7 @@ import rdflib
 import asyncio
 #import slegospace.util as util
 from IPython.display import Javascript, display
+# hello
 
 from rdflib import Graph, URIRef
 from pyvis.network import Network
