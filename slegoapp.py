@@ -11,11 +11,11 @@ import itertools
 import importlib
 from datetime import datetime
 from typing import Dict, Any
+import ast
 import rdflib
 import asyncio
 #import slegospace.util as util
 from IPython.display import Javascript, display
-# hello
 
 from rdflib import Graph, URIRef
 from pyvis.network import Network
@@ -50,6 +50,8 @@ from rdflib import URIRef
 
 # Import recommender module
 import recommender as rc
+from validate_func import *
+from function_generator import *
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -82,6 +84,10 @@ class SLEGOApp:
         self.setup_func_module()
         self.setup_event_handlers()
         self.create_layout()
+        self.create_template()
+        self.full_func_mapping_path = 'full_func.json'
+        self.setup_full_func_mapping()
+        self.output_text.value = '\nHello!\n\nWelcome to SLEGO - A Platform for Collaborative and Modular Data Analytics.\n\nPlease select the modules and functions to get started.\n\n'
         logger.info("SLEGOApp initialized.")
 
     def initialize_widgets(self):
@@ -140,6 +146,8 @@ class SLEGOApp:
             height=35
         )
 
+        self.func_generator_btn = pn.widgets.Button(name='Generate Function', height=35, button_type='success')
+
         # File management widgets
         self.folder_select = pn.widgets.Select(
             name='Select Folder',
@@ -168,7 +176,8 @@ class SLEGOApp:
         )
         self.ontology_btn = pn.widgets.Button(name='Show Ontology', height=35)
 
-        
+        self.rules_popup = pn.Card(pn.pane.Markdown("## Modal Title\nThis is the content inside the modal."), title="Modal", width=80, height=80, header_background="lightgray")
+        self.rules_button = pn.widgets.Button(name="", icon="info-circle", width=10, height=35, button_type="light")        
 
         # Placeholder for funccombo
         self.funccombo_pane = pn.Column()
@@ -209,13 +218,14 @@ class SLEGOApp:
         self.filefolder_confirm_btn.on_click(self.on_filefolder_confirm_btn_click)
         self.file_view.on_click(self.on_file_buttons_click)
         self.file_download.on_click(self.on_file_buttons_click)
-        self.file_upload.on_click(self.on_file_buttons_click)
+        self.file_upload.on_click(self.file_upload_click)
         self.file_delete.on_click(self.on_file_buttons_click)
         self.folder_select.param.watch(self.folder_select_changed, 'value')
         self.ontology_btn.on_click(self.ontology_btn_click)
 
         # Added event handler for recommendation button
         self.recommendation_btn.on_click(self.recommendation_btn_clicked)
+        self.func_generator_btn.on_click(self.func_generator_btn_click)
         logger.info("Event handlers set up.")
 
     def create_layout(self):
@@ -229,8 +239,8 @@ class SLEGOApp:
         widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, self.ontology_btn)
         widget_updownload = pn.Column(
             pn.Row(self.file_view, self.file_download),
-            self.file_input,
-            pn.Row(self.file_upload, self.file_delete,),
+            pn.Row(self.file_input, self.rules_button, width=280, height=50),
+            pn.Row(self.file_upload, self.file_delete),
             scroll=True,
         )
         widget_files = pn.Column(
@@ -252,9 +262,11 @@ class SLEGOApp:
         )
 
         # Added recommendation widgets to the layout
-        widget_recom = pn.Column(pn.Row(self.recommendation_btn, self.recomAPI_text),
-                                    self.input_text,  
-                                    scroll=True,)
+        widget_recom = pn.Column(self.input_text,
+                                 self.recomAPI_text,
+                                 pn.Row(self.recommendation_btn, self.func_generator_btn),
+                                scroll=True)
+        
         self.app = pn.Row(
             pn.Column(widget_files,
                       min_width=200, 
@@ -316,6 +328,34 @@ class SLEGOApp:
         # Set up event handler for the new funccombo
         self.funccombo.param.watch(self.funccombo_change, 'value')
         logger.info("Function combobox updated based on the selected modules.")
+
+    def setup_full_func_mapping(self):
+        if os.path.exists(self.full_func_mapping_path):
+            os.remove(self.full_func_mapping_path)
+
+        # Create a full function mapping file
+        # key is the filename and value is a list of functions (name) in the file
+        full_func_mapping = {}
+        for py_file in self.py_files:
+            file_path = os.path.join(self.functionspace, py_file)
+            function_names = self.get_all_func_names(file_path)
+            full_func_mapping[py_file] = function_names
+
+        with open(self.full_func_mapping_path, 'w') as file:
+            json.dump(full_func_mapping, file, indent=4)
+
+
+    def get_all_func_names(self, filepath):
+        with open(filepath, 'r') as file:
+            content = file.read()
+        
+        # Parse the file content into an AST
+        tree = ast.parse(content)
+        
+        # Extract all function definitions (ast.FunctionDef) from the tree
+        function_names = [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+    
+        return function_names
 
 
     def get_functions_from_module(self, module, module_name):
@@ -401,6 +441,54 @@ class SLEGOApp:
             self.output_text.value += f"\nError during recommendation: {e}"
             logger.error(f"Error during recommendation: {e}")
 
+
+    def func_generator_btn_click(self, event):
+        logger.info("Function generator button clicked.")
+        query = self.input_text.value
+        self.output_text.value = 'Generating function from query...'
+        self.output_text.value = '\n\nBelow is the original query:\n\n' + query + '\n\n'
+        generated_functions = generate_function(query)
+
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S_") + 'auto_generated_function.py'
+
+        temp_file_path = self.folder_path + '/temp/' + filename
+        with open(temp_file_path, 'w') as f:
+            f.write(generated_functions)
+
+        flag, message, proposed_correction = function_validation_result(temp_file_path)
+
+        folder = self.folder_path + '/functionspace'
+        file_path = folder + '/' + filename
+
+        self.output_text.value += '\n\n##################Generated & uploaded successfully!##############\n\n'
+        self.output_text.value += f'The following function(s) have been generated and uploaded to SLEGO functionspace with filename: {filename}.\n'
+        self.output_text.value += 'All functions are also validated and corrected if necessary.\n\n'
+        self.output_text.value += message
+
+        # add the generated functions' import statement to the file_path
+        import_statements = extract_import_statements(temp_file_path)
+
+        with open(file_path, 'w') as f:
+            for statement in import_statements:
+                f.write(statement)
+                f.write('\n')
+            f.write('\n')
+            for _, correction in proposed_correction.items():
+                f.write(correction)
+                f.write('\n\n')
+
+        if flag is False:
+            
+            self.output_text.value += "GENERATED FUNCTION WITH MODIFICATION\n\n"
+            
+        else:
+            self.output_text.value += "NO MODIFICATION NEEDED\n\n"
+            
+        self.refresh_file_table()
+        self.refresh_funcfilecombo()
+
+        os.remove(temp_file_path)
+
     def compute_btn_clicked(self, event):
         logger.info("Compute button clicked.")
         self.input_text.value = 'Computing...'
@@ -415,12 +503,12 @@ class SLEGOApp:
                 start_time = time.time()
                 function = self.funcs[func_key]
                 result = function(**parameters)
-                result_string = str(result)
+                result_string = self.output_formatting(result)
                 compute_time = time.time() - start_time
 
                 self.output_text.value += f"\n===== {func_key} =====\n\n"
                 self.output_text.value += f"Function computation time: {compute_time:.4f} seconds\n\n"
-                self.output_text.value += (result_string[:1000] + '... [truncated]') if len(result_string) > 1000 else result_string
+                self.output_text.value += result_string
                 logger.info(f"Function {func_key} computed successfully.")
             except Exception as e:
                 self.output_text.value += f"\n===== {func_key} =====\n\n"
@@ -433,9 +521,39 @@ class SLEGOApp:
         self.on_filefolder_confirm_btn_click(None)
         self.refresh_file_table()
 
-    import re
-    import json
-    import logging
+
+    def output_formatting(self, result):
+        max_rows = 10
+        max_words = 500
+        max_chars = 2000
+
+        final = ""
+
+        # Check if the result is a pandas DataFrame
+        if isinstance(result, pd.DataFrame):
+            limited_df = result.head(max_rows)  # Limit to the first max_rows rows
+            df_string = limited_df.to_string(index=False)
+            final = df_string[:max_chars]  # Limit to max_chars characters
+            if len(df_string) > max_chars:
+                final += "\n... (truncated)"
+        
+        # Handle lists or dictionaries
+        elif isinstance(result, (list, dict)):
+            result_string = str(result)
+            final = result_string[:max_chars]  # Limit to max_chars characters
+            if len(result_string) > max_chars:
+                final += "\n... (truncated)"
+
+        else:
+            result_string = str(result)
+            words_iterator = iter(result_string.split())
+            first_x_words = itertools.islice(words_iterator, max_words)
+            truncated_result = " ".join(first_x_words)
+            final = truncated_result[:max_chars]  # Limit to max_chars characters
+            if len(truncated_result) > max_chars:
+                final += "\n... (truncated)"
+
+        return final
 
     
 
@@ -485,7 +603,7 @@ class SLEGOApp:
             print(f"An error occurred while trying to open the file: {e}")
 
 
-    def create_download_script(file_path):
+    def create_download_script(self, file_path):
         """
         Creates a JavaScript function to trigger download programmatically.
         """
@@ -507,11 +625,60 @@ class SLEGOApp:
         """
         try:
             # Create and execute JavaScript to trigger download
-            script = create_download_script(file_path)
+            script = self.create_download_script(file_path)
             display(Javascript(script))
             return f"Downloading {os.path.basename(file_path)}..."
         except Exception as e:
             print(f"Error generating download link: {e}")
+
+
+    def file_upload_click(self, event):
+        if self.file_input.filename:
+            filename = self.file_input.filename
+            self.output_text.value = f'Uploading {filename}...'
+
+            file_content = self.file_input.value
+
+            temp_file_path = self.folder_path + '/temp/' + filename
+            with open(temp_file_path, 'wb') as f:
+                f.write(file_content)
+
+            flag, message, proposed_correction = function_validation_result(temp_file_path)
+            
+            folder = self.folder_path + '/' + self.file_text.value
+            file_path = folder + '/' + filename
+
+            # If a file already exists with the same name, add a timestamp to the filename
+            if os.path.exists(file_path):
+                filename = datetime.now().strftime("%Y%m%d_%H%M%S_") + filename
+                file_path = folder + '/' + filename
+                self.output_text.value += f'File with the same name already exists. Renaming to {filename}...'
+
+            # add the generated functions' import statement to the file_path
+            import_statements = extract_import_statements(temp_file_path)
+            
+            with open(file_path, 'w') as f:
+                for statement in import_statements:
+                    f.write(statement)
+                    f.write('\n')
+                f.write('\n')
+                for _, correction in proposed_correction.items():
+                    f.write(correction)
+                    f.write('\n\n')
+
+            if flag is False:
+                self.output_text.value = "\n\n##################File Upload Success BUT with modification##################\n\n" + message
+                                
+            else:
+
+                self.output_text.value += f'\n\n##################{filename} uploaded successfully!##############\n\n' + message
+                
+            self.refresh_file_table()
+            self.refresh_funcfilecombo()
+
+            os.remove(temp_file_path)
+        else:
+            self.output_text.value = 'Please select a file to upload!'
 
 
     def on_file_buttons_click(self, event):
@@ -529,7 +696,7 @@ class SLEGOApp:
                 elif event.obj.name == 'Download':
                     self.output_text.value = 'Initiating download...\n'
                     result = self.download_link(file_path)
-                elif event.obj.name == 'Upload':
+                elif event.obj.name == 'Upload' and not self.file_input.filename:
                     self.output_text.value = 'Please use the file input widget to upload!'
                 elif event.obj.name == 'Delete':
                     # Confirm deletion
@@ -607,6 +774,12 @@ class SLEGOApp:
             self.file_table.value = df_file
         else:
             self.file_table.value = pd.DataFrame()
+
+    def refresh_funcfilecombo(self):
+        # Include all .py files in the functionspace directory
+        self.py_files = [f for f in os.listdir(self.functionspace) if f.endswith('.py')]
+        self.funcfilecombo.options = self.py_files
+        logger.info(f"Refreshed funcfilecombo with {len(self.py_files)} files.")
 
     def create_multi_select_combobox(self, funcs):
         options = list(funcs.keys())
@@ -812,6 +985,33 @@ class SLEGOApp:
         self.extract_and_visualize_subgraph(file_path, subgraph_file, sparql_query)
 
 
+    def create_validation_rules_message(self):
+        message = "Microservice Rules:\n\n"
+        error_rule_message = ""
+        warning_rule_message = ""
+        for rule in validation_rules:
+            if rule.issue_type == 'ERROR':
+                error_rule_message += f"{rule.description}\n"
+            if rule.issue_type == 'WARNING':
+                warning_rule_message += f"{rule.description}\n"
+        message = f"**The following rules will lead to unsuccessful upload if not followed**\n\n{error_rule_message}\n\n"
+        message += f"**The following rules are recommended to be followed**\n\n{warning_rule_message}"
+        return message
+
+
+    def create_template(self):
+        template = pn.template.MaterialTemplate(
+            title='SLEGO - Software Lego: A Collaborative and Modular Architecture for Data Analytics'
+        )
+
+        template.modal.append(self.create_validation_rules_message())
+
+        self.template = template
+
+    def toggle_rule(self, event):
+        self.template.open_modal()
+
+
     def run(self, modules=None):
         """
         Run the app, optionally with specific modules.
@@ -865,16 +1065,13 @@ class SLEGOApp:
 
 
         if not self.is_colab_runtime():
-            template = pn.template.MaterialTemplate(
-                title='SLEGO - Software Lego: A Collaborative and Modular Architecture for Data Analytics',
-                #sidebar=[sidebar_tabs],
-            )
-            template.main.append(main_tabs)
-            template.sidebar,
+            self.rules_button.on_click(self.toggle_rule)
+            self.template.main.append(main_tabs)
+            # template.sidebar,
             # template.collapsed_sidebar = True
             
-            template.show()
-            template.servable()
+            self.template.show()
+            self.template.servable()
             logger.info("App is running in non-Colab environment.")
         else:
             from IPython.display import display
