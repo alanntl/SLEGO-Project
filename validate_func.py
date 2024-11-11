@@ -39,11 +39,11 @@ class ValidationModel:
 
 
 def api_call(prompt):
-    client = OpenAI(api_key=OPENAI_API_KEY2)
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     # Create a chat completion request
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",

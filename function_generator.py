@@ -6,10 +6,10 @@ import inspect
 from pathlib import Path
 
 from openai import OpenAI
-from config import OPENAI_API_KEY3
+from config import OPENAI_API_KEY
 
 def api_call(prompt):
-    client = OpenAI(api_key=OPENAI_API_KEY3)
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     # Create a chat completion request
     response = client.chat.completions.create(
