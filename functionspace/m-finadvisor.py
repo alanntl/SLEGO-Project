@@ -276,6 +276,8 @@ def universal_analyzer(
 
         # Save results
         __ensure_directory_exists(output_file)
+        if os.path.exists(output_file):
+            os.remove(output_file)  # Delete existing file if it exists
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(analysis_results, f, indent=4, ensure_ascii=False)
             
@@ -284,9 +286,13 @@ def universal_analyzer(
     except Exception as e:
         error_result = {'error': str(e)}
         __ensure_directory_exists(output_file)
+        if os.path.exists(output_file):
+            os.remove(output_file)  # Delete existing file if it exists
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(error_result, f, indent=4, ensure_ascii=False)
         return error_result
+
+
 
 def financial_advisor(
     input_paths: Union[str, List[str]] = 'dataspace/input/',
@@ -668,3 +674,161 @@ def json_to_csv(json_file ='dataspace/financial_risk_analysis.json',
 # # Example usage
 # json_to_csv('dataspace/financial_risk_analysis.json', 
 #             'dataspace/financial_risk_analysis.csv')
+
+
+import os
+import json
+import pandas as pd
+from typing import Union, Dict, List
+from openai import OpenAI
+from bs4 import BeautifulSoup
+
+def custom_file_analyzer(
+    files: Union[str, List[str]]= "dataspace/dataset1.csv",
+    analysis_task: str= "Analyze the content of the file and provide insights.",
+    api_key: str = '',
+    output_file: str = 'analysis_results.json',
+    model: str = 'gpt-4o',
+    max_tokens: int = 2000,
+    temperature: float = 0.7
+) -> Dict:
+    """
+    Analyzes content of given files based on a user-defined analysis task.
+
+    Parameters:
+    - files: A single file path or a list of file paths to analyze.
+    - analysis_task: A string describing the analysis to be performed on the content.
+    - api_key: OpenAI API key.
+    - output_file: Path to save the analysis results.
+    - model: OpenAI model to use.
+    - max_tokens: Maximum tokens in response.
+    - temperature: Response randomness (0-1).
+
+    Returns:
+    - Dict containing analysis results.
+    """
+    # Helper function to check if a module is installed
+    def _check_module(module_name: str) -> bool:
+        import importlib.util
+        return importlib.util.find_spec(module_name) is not None
+
+    # Helper function to extract text from HTML content
+    def _extract_text_from_html(html_content: str) -> str:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        for script in soup(["script", "style"]):
+            script.decompose()  # Remove script and style elements
+        return soup.get_text(separator='\n', strip=True)
+
+    # Helper function to read file content
+    def _read_file_content(file_path: str, installed_modules: Dict[str, bool]) -> str:
+        file_extension = os.path.splitext(file_path)[1].lower()
+
+        try:
+            if file_extension == '.txt':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+
+            elif file_extension == '.json':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return json.dumps(json.load(f), indent=2)
+
+            elif file_extension == '.html':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return _extract_text_from_html(f.read())
+
+            elif file_extension == '.pdf' and installed_modules.get('pdfplumber'):
+                import pdfplumber
+                with pdfplumber.open(file_path) as pdf:
+                    return '\n'.join(page.extract_text() for page in pdf.pages if page.extract_text())
+
+            elif file_extension == '.docx' and installed_modules.get('docx'):
+                import docx
+                doc = docx.Document(file_path)
+                return '\n'.join([para.text for para in doc.paragraphs if para.text.strip()])
+
+            elif file_extension in ['.csv', '.xlsx'] and installed_modules.get('pandas'):
+                if file_extension == '.csv':
+                    df = pd.read_csv(file_path)
+                else:
+                    df = pd.read_excel(file_path)
+                return df.to_string()
+
+            else:
+                raise ValueError(f"Unsupported file type: {file_extension}")
+
+        except Exception as e:
+            raise ValueError(f"Error reading {file_extension} file: {str(e)}")
+
+    # Start of the main function logic
+    try:
+        # Initialize modules and file types
+        installed_modules = {
+            module: _check_module(module)
+            for module in ['docx', 'pdfplumber', 'pandas', 'openpyxl', 'bs4']
+        }
+
+        supported_file_types = ['.txt', '.json', '.html']
+        if installed_modules.get('docx'):
+            supported_file_types.append('.docx')
+        if installed_modules.get('pdfplumber'):
+            supported_file_types.append('.pdf')
+        if installed_modules.get('pandas'):
+            supported_file_types.extend(['.csv', '.xlsx'])
+
+        if not api_key:
+            raise ValueError("OpenAI API key is required")
+
+        client = OpenAI(api_key=api_key)
+        analysis_results = {}
+
+        # Ensure files is a list
+        files = [files] if isinstance(files, str) else files
+
+        # Process each file
+        for file_path in files:
+            if not os.path.isfile(file_path):
+                analysis_results[file_path] = {'error': 'File does not exist'}
+                continue
+
+            file_extension = os.path.splitext(file_path)[1].lower()
+            if file_extension not in supported_file_types:
+                analysis_results[file_path] = {'error': f'Unsupported file type: {file_extension}'}
+                continue
+
+            # Read the file content
+            content = _read_file_content(file_path, installed_modules)
+
+            # Prepare the message for OpenAI API
+            messages = [
+                {"role": "system", "content": "You are an expert analyst."},
+                {"role": "user", "content": f"Please perform the following analysis task on the content:\n\n{analysis_task}\n\nContent:\n{content}"}
+            ]
+
+            # Call the OpenAI API
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+
+            # Extract the analysis result
+            analysis = response.choices[0].message.content
+
+            # Store the result
+            analysis_results[file_path] = {
+                'analysis': analysis,
+                'file_type': file_extension
+            }
+
+        # Save the analysis results to the output file
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(analysis_results, f, indent=4, ensure_ascii=False)
+
+        return analysis_results
+
+    except Exception as e:
+        error_result = {'error': str(e)}
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(error_result, f, indent=4, ensure_ascii=False)
+        return error_result

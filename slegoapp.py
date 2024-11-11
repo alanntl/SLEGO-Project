@@ -189,10 +189,10 @@ class SLEGOApp:
             file_list = os.listdir(selected_folder_path)
             df_file = pd.DataFrame(file_list, columns=['Filter Files :'])
             logger.info(f"Files in {selected_folder_path}: {file_list}")
-            return pn.widgets.Tabulator(df_file, header_filters=True, show_index=False)
+            return pn.widgets.Tabulator(df_file, header_filters=True, show_index=True)
         else:
             logger.warning(f"Folder {selected_folder_path} does not exist.")
-            return pn.widgets.Tabulator(pd.DataFrame(), header_filters=True, show_index=False)
+            return pn.widgets.Tabulator(pd.DataFrame(), header_filters=True, show_index=True)
 
     def setup_event_handlers(self):
         logger.info("Setting up event handlers...")
@@ -346,20 +346,71 @@ class SLEGOApp:
         self.output_text.value = self.get_doc_string(formatted_data)
         
         #self.json_editor.expand_all()
-
     def json_text_change(self, event):
-        logger.info("Input text changed.")
-        text = re.sub(r'\bfalse\b', 'False', self.json_text.value, flags=re.IGNORECASE)
+        """
+        Handles changes to the JSON text input, preserving existing modules while adding
+        new ones required by the JSON content.
+        
+        Parameters:
+            event: The event object containing the new JSON text value
+        """
+        logger.info("JSON text input changed.")
+        
+        # Clean up the input text
+        text = self.json_text.value
+        text = re.sub(r'\bfalse\b', 'False', text, flags=re.IGNORECASE)
         text = text.replace("'", '"')
+        
         try:
+            # Parse the JSON text
             pipeline_dict = json.loads(text)
             pipeline_dict_json = json.dumps(pipeline_dict, indent=4)
+            
+            # Extract module names from function keys
+            required_modules = set()
+            for func_key in pipeline_dict.keys():
+                if '.' in func_key:
+                    module_name = func_key.split('.')[0] + '.py'
+                    required_modules.add(module_name)
+            
+            # Get current modules and add new required ones
+            current_modules = set(self.funcfilecombo.value)
+            modules_to_add = required_modules - current_modules
+            
+            if modules_to_add:
+                # Only add new modules, preserve existing ones
+                updated_modules = list(current_modules | modules_to_add)
+                logger.info(f"Adding new modules: {modules_to_add}")
+                self.funcfilecombo.value = updated_modules
+                
+                # Update function modules with combined set
+                self.update_func_module(updated_modules)
+            
+            # Update the JSON editor and text values
             self.json_text.value = pipeline_dict_json
-            self.json_editor.value = json.loads(pipeline_dict_json)
-            self.output_text.value += '\nInput changed!'
-        except ValueError as e:
-            self.output_text.value += f'\nError parsing input: {e}'
-            logger.error(f"Error parsing input text: {e}")
+            self.json_editor.value = pipeline_dict
+            
+            # Update function selection in funccombo if it exists
+            if hasattr(self, 'funccombo'):
+                func_keys = list(pipeline_dict.keys())
+                current_funcs = set(self.funccombo.value)
+                # Preserve existing function selections and add new ones
+                updated_funcs = list(current_funcs | set(func_keys))
+                self.funccombo.value = updated_funcs
+            
+            self.output_text.value = 'Input changed successfully! Existing modules preserved.'
+            if modules_to_add:
+                self.output_text.value += f'\nNew modules added: {", ".join(modules_to_add)}'
+            
+        except json.JSONDecodeError as e:
+            error_msg = f'Error parsing JSON input: {str(e)}'
+            self.output_text.value = error_msg
+            logger.error(error_msg)
+        except Exception as e:
+            error_msg = f'Unexpected error processing input: {str(e)}'
+            self.output_text.value = error_msg
+            logger.error(error_msg)
+
 
     def json_toggle_clicked(self, event):
         logger.info(f"JSON toggle clicked: {event.new}")
