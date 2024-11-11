@@ -13,7 +13,6 @@ from datetime import datetime
 from typing import Dict, Any
 import rdflib
 import asyncio
-#import slegospace.util as util
 from IPython.display import Javascript, display
 
 from rdflib import Graph, URIRef
