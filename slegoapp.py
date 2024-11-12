@@ -50,8 +50,8 @@ from rdflib import URIRef
 
 # Import recommender module
 import recommender as rc
-from validate_func import *
-from function_generator import *
+import utils.validate_func as vf
+import utils.function_generator as fg
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -452,7 +452,7 @@ class SLEGOApp:
             self.output_text.value += 'Please provide your OpenAI API key to generate the function.'
             return
         
-        generated_functions = generate_function(query, self.recomAPI_text.value)
+        generated_functions = fg.generate_function(query, self.recomAPI_text.value)
 
         filename = datetime.now().strftime("%Y%m%d_%H%M%S_") + 'auto_generated_function.py'
 
@@ -460,7 +460,7 @@ class SLEGOApp:
         with open(temp_file_path, 'w') as f:
             f.write(generated_functions)
 
-        flag, message, proposed_correction = function_validation_result(temp_file_path, self.recomAPI_text.value)
+        flag, message, proposed_correction = vf.function_validation_result(temp_file_path, self.recomAPI_text.value)
 
         folder = self.folder_path + '/functionspace'
         file_path = folder + '/' + filename
@@ -471,7 +471,7 @@ class SLEGOApp:
         self.output_text.value += message
 
         # add the generated functions' import statement to the file_path
-        import_statements = extract_import_statements(temp_file_path)
+        import_statements = vf.extract_import_statements(temp_file_path)
 
         with open(file_path, 'w') as f:
             for statement in import_statements:
@@ -648,7 +648,7 @@ class SLEGOApp:
             with open(temp_file_path, 'wb') as f:
                 f.write(file_content)
 
-            flag, message, proposed_correction = function_validation_result(temp_file_path)
+            flag, message, proposed_correction = vf.function_validation_result(temp_file_path, self.recomAPI_text.value)
             
             folder = self.folder_path + '/' + self.file_text.value
             file_path = folder + '/' + filename
@@ -660,7 +660,7 @@ class SLEGOApp:
                 self.output_text.value += f'File with the same name already exists. Renaming to {filename}...'
 
             # add the generated functions' import statement to the file_path
-            import_statements = extract_import_statements(temp_file_path)
+            import_statements = vf.extract_import_statements(temp_file_path)
             
             with open(file_path, 'w') as f:
                 for statement in import_statements:
@@ -994,7 +994,7 @@ class SLEGOApp:
         message = "Microservice Rules:\n\n"
         error_rule_message = ""
         warning_rule_message = ""
-        for rule in validation_rules:
+        for rule in vf.validation_rules:
             if rule.issue_type == 'ERROR':
                 error_rule_message += f"{rule.description}\n"
             if rule.issue_type == 'WARNING':
