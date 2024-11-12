@@ -25,7 +25,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
     # query_embedding = np.array(json.loads(query_embedding_json))
 
     query_embedding = np.array(response.data[0].embedding)
-    top_k = 5
+    top_k = 7
 
     similarities = []
     for pipeline_name, description, microservices_details, embedding_str in pipelines_info:
@@ -89,20 +89,42 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
     functions_kb = str(top_pipelines_df.to_dict())
     conn.close()
 
-    system_message = f'''You are an data analytics expert that recommends pipelines based on user queries. 
-                        You have access to a knowledge base of pipelines and their components. 
-                        You need to generate a pipeline based on the user query and JSON configuration provided. 
-                        You also have access to a list of functions in the knowledge base that can be used in the pipeline.
-                        Here are some functions in the knowledge base:{functions_kb}
+    # system_message = f'''You are an data analytics expert that recommends pipelines based on user queries. 
+    #                     You have access to a knowledge base of pipelines and their components. 
+    #                     You need to generate a pipeline based on the user query and JSON configuration provided. 
+    #                     You also have access to a list of functions in the knowledge base that can be used in the pipeline.
+    #                     Here are some functions in the knowledge base:{functions_kb}
+    #                     '''
+    system_message = f'''You are a data analytics expert specializing in recommending analytics pipelines based on user needs.
+                        You have a knowledge base of pipelines and components, with specific JSON configurations available.
+                        When a user provides a query, suggest the most relevant pipeline configuration by modifying the parameters to best fit the user’s needs. 
+                        Only recommend components that exist within the knowledge base and ensure that the output JSON format is consistent with existing examples.
+                        Example JSON format for output:
+                        {{
+                            "function_name": {{
+                                "parameter1": "value1",
+                                "parameter2": "value2",
+                                ...
+                            }},
+                            ...
+                        }}
                         '''
 
-    user_message = (f"Recommend a pipeline based on both user_query and user_pipeline."
-                    f"The user query is: {user_query}."
-                    f"The user pipeline is: {user_pipeline}."
-                    f"Here are the functions available in the knowledge base: {functions_kb}, do not generate something you cannot find here."
-                    f"Ensure the structure and style are consistent with the existing functions."
-                    f"The final outcome should be a JSON configuration of the pipeline same as the format  {prompt_format}"
-                    f"Give the reason of summary to explain why the pipeline and special parameters are recommended."
+    # user_message = (f"Recommend a pipeline based on both user_query and user_pipeline."
+    #                 f"The user query is: {user_query}."
+    #                 f"The user pipeline is: {user_pipeline}."
+    #                 f"Here are the functions available in the knowledge base: {functions_kb}, do not generate something you cannot find here."
+    #                 f"Ensure the structure and style are consistent with the existing functions."
+    #                 f"The final outcome should be a JSON configuration of the pipeline same as the format  {prompt_format}"
+    #                 f"Give the reason of summary to explain why the pipeline and special parameters are recommended."
+    #                 )
+    user_message = (f"Based on the user's needs, recommend the best analytics pipeline from the knowledge base by adapting parameters."
+                    f"User Query: {user_query}."
+                    f"Existing Pipeline: {user_pipeline}."
+                    f"Available functions in the knowledge base: {functions_kb}."
+                    f"Make sure to use only components from the knowledge base and keep the output in the same JSON format."
+                    f"Explain why each recommended pipeline component is a good fit and provide any relevant details for parameter adaptation."
+                    f"Output format should follow this example JSON format: {prompt_format}"
                     )
 
     response = client.chat.completions.create(
@@ -126,16 +148,26 @@ def pipeline_parameters_recommendation(user_query, generated_pipeline, openai_ap
     client = OpenAI(api_key=openai_api_key)
 
     
-    system_message = f'''You are an data analytics expert that recommends paramters for the analytics pipeline based on user queries. 
-                        You need to generate a parameters based on the user query and JSON pipline provided. 
+    # system_message = f'''You are an data analytics expert that recommends paramters for the analytics pipeline based on user queries. 
+    #                     You need to generate a parameters based on the user query and JSON pipline provided. 
+    #                     '''
+    system_message = f'''You are a data analytics expert providing parameter suggestions for existing analytics pipelines.
+                        Use the user’s query to adjust parameters within a given JSON pipeline structure to enhance the pipeline’s effectiveness for the specified task.
+                        Retain the original pipeline structure; modify only the parameter values as needed to tailor the pipeline to the user’s needs.
                         '''
 
-    user_message = (f"Recommend a parameters based on the given analytics pipeline details- keys are functions, values are parameters."
-                    f"The analytics pipeline is: {generated_pipeline}."
-                    f"Here is thet task that user wanna do: {user_query}."
-                    f"Do not change the given pipeline, only suggest the parameters."
-                    f"The final outcome should be the same pipeline with the parameters you suggested."
-                    )
+    # user_message = (f"Recommend a parameters based on the given analytics pipeline details- keys are functions, values are parameters."
+    #                 f"The analytics pipeline is: {generated_pipeline}."
+    #                 f"Here is thet task that user wanna do: {user_query}."
+    #                 f"Do not change the given pipeline, only suggest the parameters."
+    #                 f"The final outcome should be the same pipeline with the parameters you suggested."
+    #                 )
+    user_message = (f"Recommend parameters for the analytics pipeline based on the given task and pipeline structure."
+                    f"Task Description: {user_query}."
+                    f"Pipeline Structure: {generated_pipeline}."
+                    f"Retain the given structure, making modifications only to the parameter values."
+                    f"Ensure the parameters align with the user’s task while staying true to the pipeline's intended functionality."
+                )
 
     response = client.chat.completions.create(
         model="gpt-4o",
