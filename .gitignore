@@ -51,3 +51,7 @@ exp2.ipynb
 
 
 recsys.ipynb
+
+temp/
+
+config.py
