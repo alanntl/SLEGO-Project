@@ -11,31 +11,31 @@ from openai import OpenAI
 def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
     
     client = OpenAI(api_key=openai_api_key)
-
-
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()       
-    cursor.execute("SELECT name, description, microservices_details, embedding FROM pipelines")
+    cursor.execute("SELECT pipeline_name, description, pipeline_details, embedding FROM pipelines")
 
     pipelines_info = cursor.fetchall()
     
     all_queries = user_query + ' ' +str(user_pipeline)
 
     response = client.embeddings.create(input=all_queries, model="text-embedding-ada-002")
-    query_embedding_json = json.dumps(response.data[0].embedding)
+    # query_embedding_json = json.dumps(response.data[0].embedding)
 
-    query_embedding = np.array(json.loads(query_embedding_json))
+    # query_embedding = np.array(json.loads(query_embedding_json))
+
+    query_embedding = np.array(response.data[0].embedding)
     top_k = 5
 
     similarities = []
-    for name, description, microservices_details, embedding_str in pipelines_info:
+    for pipeline_name, description, microservices_details, embedding_str in pipelines_info:
         embedding = np.array(json.loads(embedding_str))
         similarity_score = 1 - cosine(query_embedding, embedding)
         similarity_percentage = similarity_score * 100
         similarities.append({
-            'name': name,
+            'pipeline_name': pipeline_name,
             'description': description,
-            'microservices_details': json.loads(microservices_details),
+            'pipeline_details': json.loads(microservices_details),
             'similarity_percentage': similarity_percentage
         })
 
@@ -46,7 +46,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
     components_description_list = []
     components_source_code_list = []
 
-    for pipeline in top_pipelines_df['microservices_details'].values:
+    for pipeline in top_pipelines_df['pipeline_details'].values:
         component_description = {}
         component_source_code = {}
         for component in pipeline:
@@ -57,7 +57,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
             else:
                 continue  # Skip if component is neither dict nor string
 
-            cursor.execute("SELECT name, description, source_code FROM microservices WHERE name = ?", (component_name,))
+            cursor.execute("SELECT module_name, docstring, source_code FROM functions WHERE component_name = ?", (component_name,))
             component_info = cursor.fetchall()
             
             if component_info:
@@ -106,7 +106,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
                     )
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         #response_format={ "type": "json_object" },
         messages=[
             {"role": "system", "content": system_message},
@@ -152,28 +152,3 @@ def pipeline_parameters_recommendation(user_query, generated_pipeline, openai_ap
         )
     response_text = response.choices[0].message.content.strip() # response['choices'][0]['message']['content'].strip()
     return response_text
-
-
-# from langchain.chains.conversation.memory import ConversationBufferMemory
-# from langchain import OpenAI, LLMChain, PromptTemplate
-
-# environ["OPENAI_API_KEY"] = "KEYS FROM SOMEWHERE .env"
-# template = """You are a mathematician. Given the text of question, it is your job to write an answer that question with example.
-# {chat_history}
-# Human: {question}
-# AI:
-# """
-# prompt_template = PromptTemplate(input_variables=["chat_history","question"], template=template)
-# memory = ConversationBufferMemory(memory_key="chat_history")
-
-# llm_chain = LLMChain(
-#     llm=OpenAI(),
-#     prompt=prompt_template,
-#     verbose=True,
-#     memory=memory,
-# )
-
-# llm_chain.run("What is 4 + 3?")
-
-# result = llm_chain.run("add 7 to it")
-# print(result)

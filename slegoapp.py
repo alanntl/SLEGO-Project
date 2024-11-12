@@ -425,14 +425,14 @@ class SLEGOApp:
         self.output_text.value = 'Asking AI for recommendation: \n'
         user_pipeline = self.json_editor.value
         user_query = self.input_text.value
-        db_path = os.path.join(self.folder_path, 'KB.db')
+        db_path = os.path.join(self.folder_path, 'knowledge.db')
         openai_api_key = self.recomAPI_text.value
 
         try:
             response_text = rc.pipeline_recommendation(db_path, user_query, user_pipeline, openai_api_key)
             self.output_text.value += response_text
             self.output_text.value += '\n\n=================================\n'
-            response_text = rc.pipeline_parameters_recommendation(user_query, response_text, openai_api_key)
+            response_text += rc.pipeline_parameters_recommendation(user_query, response_text, openai_api_key)
 
             text = str(response_text)
             text = re.sub(r"\b(false|False)\b", '"false"', text, flags=re.IGNORECASE)
