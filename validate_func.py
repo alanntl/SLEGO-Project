@@ -2,10 +2,16 @@ import inspect
 import importlib.util
 import ast
 from typing import Callable, List
-from config import *
+#from config import *
 import json
 
 from openai import OpenAI
+# get api key using env
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 class ValidationResult:

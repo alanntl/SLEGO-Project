@@ -1,0 +1,178 @@
+{
+    "m-irisclustering.py": [
+        "fetch_iris_dataset",
+        "perform_kmeans_clustering",
+        "plotly_cluster_visualization"
+    ],
+    "m-eda.py": [
+        "generate_sweetviz_report"
+    ],
+    "m-autogluon.py": [
+        "train_autogluon_tabular",
+        "autogluon_model_predict"
+    ],
+    "m-hfd.py": [
+        "populate",
+        "dollarVolumeTraded",
+        "shareVolumeTraded",
+        "vWAP",
+        "arithmeticReturn",
+        "logReturn",
+        "tradeCount",
+        "effectiveSpread",
+        "realisedSpread",
+        "priceImpact",
+        "averagePrice",
+        "main"
+    ],
+    "m-arxiv.py": [
+        "search_arxiv_papers",
+        "download_papers_from_arxiv_csv",
+        "analyze_research_trends",
+        "__analyze_content"
+    ],
+    "m-financecom.py": [
+        "populate",
+        "dollarVolumeTraded",
+        "shareVolumeTraded",
+        "vWAP",
+        "arithmeticReturn",
+        "logReturn",
+        "tradeCount",
+        "effectiveSpread",
+        "realisedSpread",
+        "priceImpact",
+        "averagePrice",
+        "main"
+    ],
+    "m-finadvisor.py": [
+        "__check_module",
+        "__ensure_directory_exists",
+        "__extract_text_from_html",
+        "__read_file_content",
+        "__analyze_content",
+        "universal_analyzer",
+        "financial_advisor",
+        "get_all_financial_data",
+        "generate_financial_risk_analysis",
+        "json_to_csv",
+        "custom_file_analyzer",
+        "make_timezone_naive",
+        "safe_fetch",
+        "_check_module",
+        "_extract_text_from_html",
+        "_read_file_content",
+        "analyze_file",
+        "process_path"
+    ],
+    "m-covid19.py": [
+        "fetch_covid19_data",
+        "preprocess_covid19_data",
+        "build_and_train_prophet_model",
+        "forecast_covid19_cases",
+        "visualize_forecast"
+    ],
+    "m-uci_dataset.py": [
+        "fetch_uci_dataset"
+    ],
+    "m-viz.py": [
+        "__plotly_chart"
+    ],
+    "m-backtest.py": [
+        "moving_avg_cross_signal",
+        "vbt_sginal_backtest",
+        "buy_and_hold_signal",
+        "backtest_viz_with_quantstats"
+    ],
+    "m-anomalydetection.py": [
+        "fetch_air_quality_data",
+        "preprocess_air_quality_data",
+        "detect_anomalies_isolation_forest",
+        "plot_anomalies"
+    ],
+    "m-yfinance.py": [
+        "import_marketdata_yahoo_csv",
+        "preprocess_filling_missing_values",
+        "compute_return",
+        "plotly_chart",
+        "compute_simple_moving_average"
+    ],
+    "m-libraryInstaller.py": [
+        "install_and_import"
+    ],
+    "m-trading.py": [
+        "movingAvg",
+        "movingAvg_50",
+        "movingAvg_10",
+        "calculate_vwap",
+        "generate_mAvg_Crossover_trading_signals",
+        "calculate_typical_price",
+        "calculate_raw_money_flow_RMF",
+        "calculate_money_flow_ratio_MFR",
+        "calculate_money_flow_index_MFI",
+        "generate_mfi_trading_signals",
+        "backtest_signals",
+        "mix_signal_strategy",
+        "parse_strategy"
+    ],
+    "m-Minhua_trial.py": [
+        "common_statistics",
+        "moving_average",
+        "plot_prices"
+    ],
+    "m-sentiment_analysis.py": [
+        "fetch_nltk_movie_reviews",
+        "train_text_classification_model",
+        "text_model_predict"
+    ],
+    "m-data_preprocess.py": [
+        "df_keep_rows_by_index",
+        "df_keep_columns",
+        "df_delete_columns",
+        "df_rename_columns",
+        "merge_csv_by_index",
+        "prepare_dataset_tabular_ml",
+        "split_dataset_4ml",
+        "df_shift_data_row"
+    ],
+    "m-regression.py": [
+        "fetch_sklearn_dataset",
+        "train_sklearn_regression_model",
+        "sklearn_model_predict"
+    ],
+    "m-util.py": [
+        "test_function",
+        "_compute",
+        "_create_multi_select_combobox",
+        "_extract_parameter",
+        "__combine_json_files",
+        "__construct_subgraph",
+        "__graph_to_results",
+        "__get_local_name",
+        "__visualize_query_results_interactive",
+        "__extract_and_visualize_subgraph"
+    ],
+    "m-image_classificaiton.py": [
+        "fetch_cifar10_dataset",
+        "train_cnn_model",
+        "cnn_model_predict",
+        "gather_image_paths",
+        "save_images"
+    ],
+    "m-pdfhandler.py": [
+        "pdf_to_text"
+    ],
+    "m-llm.py": [
+        "chatbot_huggingface_api",
+        "chatgpt_chat"
+    ],
+    "m-webscrape.py": [
+        "webscrape_to_txt"
+    ],
+    "m-moving_avg_plot.py": [
+        "import_marketdata_yahoo_csv",
+        "preprocess_filling_missing_values",
+        "plot_chart_local",
+        "compute_simple_moving_average_local"
+    ]
+}
