@@ -8,7 +8,7 @@ from contextlib import contextmanager
 logging.basicConfig(level=logging.INFO)
 
 # Constants
-REQUIRED_SPACES = ['dataspace', 'recordspace', 'functionspace', 'knowledgespace', 'ontologyspace']
+REQUIRED_SPACES = ['dataspace', 'recordspace', 'functionspace', 'knowledgespace', 'ontologyspace', 'temp']
 
 # Utility functions
 def detect_environment() -> str:

@@ -447,7 +447,12 @@ class SLEGOApp:
         query = self.input_text.value
         self.output_text.value = 'Generating function from query...'
         self.output_text.value = '\n\nBelow is the original query:\n\n' + query + '\n\n'
-        generated_functions = generate_function(query)
+
+        if not self.recomAPI_text.value:
+            self.output_text.value += 'Please provide your OpenAI API key to generate the function.'
+            return
+        
+        generated_functions = generate_function(query, self.recomAPI_text.value)
 
         filename = datetime.now().strftime("%Y%m%d_%H%M%S_") + 'auto_generated_function.py'
 
@@ -455,7 +460,7 @@ class SLEGOApp:
         with open(temp_file_path, 'w') as f:
             f.write(generated_functions)
 
-        flag, message, proposed_correction = function_validation_result(temp_file_path)
+        flag, message, proposed_correction = function_validation_result(temp_file_path, self.recomAPI_text.value)
 
         folder = self.folder_path + '/functionspace'
         file_path = folder + '/' + filename

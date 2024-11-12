@@ -7,6 +7,9 @@ import json
 
 from openai import OpenAI
 
+# create a global variable to store the api key
+global_api_key = None
+
 
 class ValidationResult:
     def __init__(
@@ -39,7 +42,7 @@ class ValidationModel:
 
 
 def api_call(prompt):
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    client = OpenAI(api_key=global_api_key)
 
     # Create a chat completion request
     response = client.chat.completions.create(
@@ -391,8 +394,12 @@ def load_module(file_path):
     return module
 
 
-def function_validation_result(file_path):
+def function_validation_result(file_path, api_key):
     module = load_module(file_path)
+
+    #assign the api key to the global variable
+    global global_api_key
+    global_api_key = api_key
 
     validation_result, proposed_correction = validate_func(module)
     flag = True

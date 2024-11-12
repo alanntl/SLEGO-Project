@@ -6,10 +6,10 @@ import inspect
 from pathlib import Path
 
 from openai import OpenAI
-from config import OPENAI_API_KEY
+# from config import OPENAI_API_KEY
 
-def api_call(prompt):
-    client = OpenAI(api_key=OPENAI_API_KEY)
+def api_call(prompt, api_key):
+    client = OpenAI(api_key=api_key)
 
     # Create a chat completion request
     response = client.chat.completions.create(
@@ -104,8 +104,8 @@ def function_to_string(func):
         return flag, f"Source code not available for {func.__name__}"
 
 
-def generate_function(query):
+def generate_function(query, api_key):
     # Generate the function based on the user query
-    function = api_call(construct_query(query))
+    function = api_call(construct_query(query), api_key)
 
     return function
