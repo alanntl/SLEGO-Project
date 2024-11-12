@@ -48,6 +48,10 @@ exp.ipynb
 exp2.ipynb
 .DS_Store
 
+
+KB.db
+recsys.ipynb
+
 temp/
 
 config.py
