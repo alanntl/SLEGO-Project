@@ -54,7 +54,7 @@ def construct_query(user_query: str) -> str:
     I will provide you with some examples that you can use as a reference."
 
     # Specify the path to your Python file
-    module_path = Path("../functionspace/m-data_preprocess.py")
+    module_path = Path("functionspace/m-data_preprocess.py")
     module_name = "m_data_preprocess"  # Use a Python-friendly alias for the module name
 
     # Load the module
