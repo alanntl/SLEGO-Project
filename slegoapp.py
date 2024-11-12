@@ -180,6 +180,8 @@ class SLEGOApp:
 
         # Placeholder for funccombo
         self.funccombo_pane = pn.Column()
+
+        self.checkbox_view = pn.widgets.Checkbox(name='Open file', value=False, height=15)
         logger.info("Widgets initialized.")
 
     def setup_func_module(self):
@@ -236,8 +238,8 @@ class SLEGOApp:
             
         )
         widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, self.ontology_btn)
-        widget_updownload = pn.Column(
-            pn.Row(self.file_view, self.file_download),
+        widget_updownload = pn.Column(self.checkbox_view,
+            pn.Row(pn.Row(self.file_view) , self.file_download),
             pn.Row(self.file_input, self.rules_button, width=280, height=50),
             pn.Row(self.file_upload, self.file_delete),
             scroll=True,
@@ -482,14 +484,14 @@ class SLEGOApp:
             text = str(response_text)
             # Replace all `true`/`false` (any case) with "true"/"false" strings
             text = re.sub(r'\b(true|false)\b', lambda match: f'"{match.group(0).lower()}"', text, flags=re.IGNORECASE)
-            self.output_text.value += response_text
+            #self.output_text.value += response_text
 
             services = json.loads(response_text)
             keys = list(services.keys())
             self.funccombo.value = keys
 
             rec_string = json.dumps(services, indent=4)
-            self.json_editor.value = services
+            self.json_editor.value = rec_string
             logger.info("Recommendation process completed.")
         except Exception as e:
             self.output_text.value += f"\nError during recommendation: {e}"
@@ -742,36 +744,44 @@ class SLEGOApp:
 
     def on_file_buttons_click(self, event):
         logger.info(f"File button '{event.obj.name}' clicked.")
-        self.output_text.value = ''
-        file_list = self.file_table.selected_dataframe['Filter Files :'].tolist()
-        if file_list:
-            for filename in file_list:
-                file_path = os.path.join(self.folder_path, self.file_text.value.lstrip('/'), filename)
-                if event.obj.name == 'View':
-                    self.open_with_default_app(file_path)
-                    with open(file_path, 'r') as file:
-                        content = file.read()
-                    self.output_text.value += f"\n===== {filename} =====\n{content}\n"
-                elif event.obj.name == 'Download':
-                    self.output_text.value = 'Initiating download...\n'
-                    result = self.download_link(file_path)
-                elif event.obj.name == 'Upload' and not self.file_input.filename:
-                    self.output_text.value = 'Please use the file input widget to upload!'
-                elif event.obj.name == 'Delete':
-                    # Confirm deletion
-                    self.output_text.value = 'Are you sure you want to delete the selected file(s)? Please type "delete" in the user input textbox.'
-                    #user input type are delete:
-                    if self.input_text.value == 'delete':
-                        os.remove(file_path)
-                        self.output_text.value += f"\nDeleted file: {filename}"
-                        logger.info(f"Deleted file: {filename}")
-                        self.refresh_file_table()  # Refresh table after deletion
-                    else:
-                        #self.output_text.value += f"\nDeletion cancelled."
-                        logger.info(f"Deletion cancelled.")
-    
-        else:
-            self.output_text.value = 'Please select a file to perform the action.'
+        self.output_text.value =''
+
+        filename = self.file_table.current_view.loc[self.file_table.selection[0]].values[0]
+        file_path = os.path.join(self.folder_path, self.file_text.value.lstrip('/'), filename)
+        self.output_text.value += "select: " + filename
+
+        if event.obj.name == 'View':
+            
+            if self.checkbox_view.value:
+                self.open_with_default_app(file_path)
+            if os.path.isdir(file_path):
+                # List and display all files in the folder
+                files = os.listdir(file_path)
+                self.output_text.value += f"\n===== Contents of {file_path} =====\n"
+                for file in files:
+                    self.output_text.value += f"{file}\n"
+            else:
+                with open(file_path, 'r') as file:
+                    content = file.read()
+                self.output_text.value += f"\n===== {filename} =====\n{content}\n"
+        elif event.obj.name == 'Download':
+            self.output_text.value = 'Initiating download...\n'
+            result = self.download_link(file_path)
+        elif event.obj.name == 'Upload' and not self.file_input.filename:
+            self.output_text.value = 'Please use the file input widget to upload!'
+        elif event.obj.name == 'Delete':
+            # Confirm deletion
+            self.output_text.value = 'Are you sure you want to delete the selected file(s)? Please type "delete" in the user input textbox.'
+            #user input type are delete:
+            if self.input_text.value == 'delete':
+                os.remove(file_path)
+                self.output_text.value += f"\nDeleted file: {filename}"
+                logger.info(f"Deleted file: {filename}")
+                self.refresh_file_table()  # Refresh table after deletion
+            else:
+                #self.output_text.value += f"\nDeletion cancelled."
+                logger.info(f"Deletion cancelled.")
+
 
     def on_filefolder_confirm_btn_click(self, event):
         logger.info("File folder confirm button clicked.")
