@@ -398,7 +398,11 @@ class SLEGOApp:
         
         # Clean up the input text
         text = self.json_text.value
-        text = re.sub(r'\bfalse\b', 'False', text, flags=re.IGNORECASE)
+
+        # Replace all `true`/`false` (any case) with "true"/"false" strings
+        text = re.sub(r'\b(true|false)\b', lambda match: f'"{match.group(0).lower()}"', text, flags=re.IGNORECASE)
+
+
         text = text.replace("'", '"')
         
         try:
@@ -476,8 +480,8 @@ class SLEGOApp:
             response_text += rc.pipeline_parameters_recommendation(user_query, response_text, openai_api_key)
 
             text = str(response_text)
-            text = re.sub(r"\b(false|False)\b", '"false"', text, flags=re.IGNORECASE)
-
+            # Replace all `true`/`false` (any case) with "true"/"false" strings
+            text = re.sub(r'\b(true|false)\b', lambda match: f'"{match.group(0).lower()}"', text, flags=re.IGNORECASE)
             self.output_text.value += response_text
 
             services = json.loads(response_text)
