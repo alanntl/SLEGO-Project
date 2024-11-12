@@ -832,3 +832,285 @@ def custom_file_analyzer(
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(error_result, f, indent=4, ensure_ascii=False)
         return error_result
+
+
+
+import pandas as pd
+import yfinance as yf
+import os
+from datetime import datetime
+from typing import Optional, Union, Dict
+
+def __make_timezone_naive(df: pd.DataFrame) -> pd.DataFrame:
+    """Helper function to convert DataFrame to timezone-naive"""
+    if not isinstance(df, pd.DataFrame):
+        if isinstance(df, pd.Series):
+            df = df.to_frame()
+        else:
+            return df
+            
+    if isinstance(df.index, pd.DatetimeIndex) and df.index.tz is not None:
+        df.index = df.index.tz_localize(None)
+    
+    for col in df.select_dtypes(include=['datetime64[ns, UTC]', 'datetimetz']).columns:
+        df[col] = df[col].dt.tz_localize(None)
+        
+    for col in df.select_dtypes(include=['object']).columns:
+        try:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = pd.to_datetime(df[col]).dt.tz_localize(None)
+        except:
+            continue
+            
+    return df
+
+def __create_output_dir(output_path: str) -> None:
+    """Create output directory if it doesn't exist"""
+    if output_path:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+def __save_dataframe(df: pd.DataFrame, 
+                    output_path: str, 
+                    sheet_name: str = 'Sheet1',
+                    index: bool = True) -> None:
+    """
+    Save DataFrame to either CSV or Excel
+    """
+    if not output_path:
+        return
+        
+    __create_output_dir(output_path)
+    
+    if output_path.endswith('.xlsx'):
+        with pd.ExcelWriter(output_path, engine='openpyxl', 
+                           mode='a' if os.path.exists(output_path) else 'w') as writer:
+            df.to_excel(writer, sheet_name=sheet_name, index=index)
+    else:
+        df.to_csv(output_path, index=index)
+
+def __get_safe_filename(base: str, name: str, ext: str) -> str:
+    """Create safe filename by removing invalid characters"""
+    invalid_chars = '<>:"/\\|?*'
+    for char in invalid_chars:
+        name = name.replace(char, '_')
+    return f"{base}_{name}{ext}"
+
+def get_basic_info(ticker_symbol: str = 'MSFT', 
+                  output_path: str = 'dataspace/info.csv') -> pd.DataFrame:
+    """Get basic information about the stock"""
+    ticker = yf.Ticker(ticker_symbol)
+    info_df = pd.DataFrame.from_dict(ticker.info, orient='index', columns=[ticker_symbol])
+    info_df = __make_timezone_naive(info_df)
+    
+    if output_path:
+        __save_dataframe(info_df, output_path)
+    
+    return info_df
+
+def get_market_data(ticker_symbol: str = 'MSFT', 
+                   period: str = '1y', 
+                   output_path: str = 'dataspace/market_data.csv') -> pd.DataFrame:
+    """Get historical market data"""
+    ticker = yf.Ticker(ticker_symbol)
+    market_data = ticker.history(period=period)
+    market_data = __make_timezone_naive(market_data)
+    
+    if output_path:
+        __save_dataframe(market_data, output_path)
+    
+    return market_data
+
+def get_financial_statements(ticker_symbol: str = 'MSFT', 
+                           statement_type: str = 'all', 
+                           frequency: str = 'annual', 
+                           output_path: str = 'dataspace/financial_statements.xlsx') -> Dict[str, pd.DataFrame]:
+    """Get financial statements"""
+    ticker = yf.Ticker(ticker_symbol)
+    statements = {}
+    
+    statement_mapping = {
+        'income': (ticker.income_stmt, ticker.quarterly_income_stmt),
+        'balance': (ticker.balance_sheet, ticker.quarterly_balance_sheet),
+        'cash': (ticker.cashflow, ticker.quarterly_cashflow)
+    }
+    
+    statements_to_fetch = (
+        statement_mapping.items() if statement_type == 'all' 
+        else [(statement_type, statement_mapping[statement_type])]
+    )
+    
+    for name, (annual, quarterly) in statements_to_fetch:
+        df = __make_timezone_naive(
+            (annual if frequency == 'annual' else quarterly).transpose()
+        )
+        statements[name] = df
+        
+        if output_path:
+            if output_path.endswith('.xlsx'):
+                __save_dataframe(df, output_path, sheet_name=f"{frequency}_{name}")
+            else:
+                base, ext = os.path.splitext(output_path)
+                out_path = __get_safe_filename(base, f"{frequency}_{name}", ext)
+                __save_dataframe(df, out_path)
+    
+    return statements
+
+def get_ownership_data(ticker_symbol: str = 'MSFT', 
+                      data_type: str = 'all', 
+                      output_path: str = 'dataspace/ownership.xlsx') -> Dict[str, pd.DataFrame]:
+    """Get ownership and insider data"""
+    ticker = yf.Ticker(ticker_symbol)
+    ownership = {}
+    
+    data_mapping = {
+        'major': {'major_holders': ticker.major_holders},
+        'institutional': {'institutional_holders': ticker.institutional_holders},
+        'mutual': {'mutualfund_holders': ticker.mutualfund_holders},
+        'insider': {
+            'insider_transactions': ticker.insider_transactions,
+            'insider_purchases': ticker.insider_purchases,
+            'insider_roster': ticker.insider_roster_holders
+        }
+    }
+    
+    types_to_fetch = (
+        data_mapping.items() if data_type == 'all' 
+        else [(data_type, data_mapping[data_type])]
+    )
+    
+    for _, data_dict in types_to_fetch:
+        for name, data in data_dict.items():
+            df = __make_timezone_naive(data)
+            ownership[name] = df
+            
+            if output_path:
+                if output_path.endswith('.xlsx'):
+                    __save_dataframe(df, output_path, sheet_name=name)
+                else:
+                    base, ext = os.path.splitext(output_path)
+                    out_path = __get_safe_filename(base, name, ext)
+                    __save_dataframe(df, out_path)
+    
+    return ownership
+
+def get_analyst_data(ticker_symbol: str = 'MSFT', 
+                    data_type: str = 'all', 
+                    output_path: str = 'dataspace/analyst.xlsx') -> Dict[str, pd.DataFrame]:
+    """Get analyst recommendations and estimates"""
+    ticker = yf.Ticker(ticker_symbol)
+    analysis = {}
+    
+    data_mapping = {
+        'recommendations': {
+            'recommendations': ticker.recommendations,
+            'recommendations_summary': ticker.recommendations_summary,
+            'upgrades_downgrades': ticker.upgrades_downgrades
+        },
+        'price_targets': {
+            'price_targets': ticker.analyst_price_targets
+        },
+        'estimates': {
+            'earnings_estimate': ticker.earnings_estimate,
+            'revenue_estimate': ticker.revenue_estimate,
+            'earnings_history': ticker.earnings_history,
+            'eps_trend': ticker.eps_trend,
+            'eps_revisions': ticker.eps_revisions,
+            'growth_estimates': ticker.growth_estimates
+        }
+    }
+    
+    types_to_fetch = (
+        data_mapping.items() if data_type == 'all' 
+        else [(data_type, data_mapping[data_type])]
+    )
+    
+    for _, data_dict in types_to_fetch:
+        for name, data in data_dict.items():
+            df = __make_timezone_naive(data)
+            analysis[name] = df
+            
+            if output_path:
+                if output_path.endswith('.xlsx'):
+                    __save_dataframe(df, output_path, sheet_name=name)
+                else:
+                    base, ext = os.path.splitext(output_path)
+                    out_path = __get_safe_filename(base, name, ext)
+                    __save_dataframe(df, out_path)
+    
+    return analysis
+
+def get_corporate_actions(ticker_symbol: str = 'MSFT', 
+                         data_type: str = 'all', 
+                         output_path: str = 'dataspace/corporate_actions.xlsx') -> Dict[str, pd.DataFrame]:
+    """Get corporate actions data"""
+    ticker = yf.Ticker(ticker_symbol)
+    actions = {}
+    
+    data_mapping = {
+        'dividends': {
+            'dividends': ticker.dividends.to_frame() if not ticker.dividends.empty else pd.DataFrame()
+        },
+        'splits': {
+            'splits': ticker.splits.to_frame() if not ticker.splits.empty else pd.DataFrame()
+        },
+        'capital_gains': {
+            'capital_gains': ticker.capital_gains.to_frame() if not ticker.capital_gains.empty else pd.DataFrame()
+        }
+    }
+    
+    types_to_fetch = (
+        data_mapping.items() if data_type == 'all' 
+        else [(data_type, data_mapping[data_type])]
+    )
+    
+    for _, data_dict in types_to_fetch:
+        for name, data in data_dict.items():
+            df = __make_timezone_naive(data)
+            actions[name] = df
+            
+            if output_path:
+                if output_path.endswith('.xlsx'):
+                    __save_dataframe(df, output_path, sheet_name=name)
+                else:
+                    base, ext = os.path.splitext(output_path)
+                    out_path = __get_safe_filename(base, name, ext)
+                    __save_dataframe(df, out_path)
+    
+    return actions
+
+def get_news_data(ticker_symbol: str = 'MSFT', 
+                  output_path: str = 'dataspace/news.csv') -> pd.DataFrame:
+    """Get news related to the stock"""
+    ticker = yf.Ticker(ticker_symbol)
+    news_df = pd.DataFrame(ticker.news)
+    news_df = __make_timezone_naive(news_df)
+    
+    if output_path:
+        __save_dataframe(news_df, output_path)
+    
+    return news_df
+
+def get_calendar_data(ticker_symbol: str = 'MSFT', 
+                     output_path: str = 'dataspace/calendar.csv') -> pd.DataFrame:
+    """Get calendar events"""
+    ticker = yf.Ticker(ticker_symbol)
+    calendar_df = pd.DataFrame(ticker.calendar)
+    calendar_df = __make_timezone_naive(calendar_df)
+    
+    if output_path:
+        __save_dataframe(calendar_df, output_path)
+    
+    return calendar_df
+
+def get_sec_filings(ticker_symbol: str = 'MSFT', 
+                    output_path: str = 'dataspace/sec_filings.csv') -> pd.DataFrame:
+    """Get SEC filings"""
+    ticker = yf.Ticker(ticker_symbol)
+    filings_df = pd.DataFrame(ticker.sec_filings)
+    filings_df = __make_timezone_naive(filings_df)
+    
+    if output_path:
+        __save_dataframe(filings_df, output_path)
+    
+    return filings_df
+

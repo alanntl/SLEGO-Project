@@ -2,7 +2,7 @@ import inspect
 import importlib.util
 import ast
 from typing import Callable, List
-from config import *
+# from config import *
 import json
 
 from openai import OpenAI

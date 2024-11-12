@@ -48,9 +48,11 @@ from pyvis.network import Network
 from rdflib import URIRef
 
 # Import recommender module
-import recommender as rc
+import utils.recommender as rc
 import utils.validate_func as vf
 import utils.function_generator as fg
+
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -237,7 +239,7 @@ class SLEGOApp:
             scroll=True,
             
         )
-        widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, self.ontology_btn)
+        widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, )
         widget_updownload = pn.Column(self.checkbox_view,
             pn.Row(pn.Row(self.file_view) , self.file_download),
             pn.Row(self.file_input, self.rules_button, width=280, height=50),
@@ -265,7 +267,7 @@ class SLEGOApp:
         # Added recommendation widgets to the layout
         widget_recom = pn.Column(self.input_text,
                                  self.recomAPI_text,
-                                 pn.Row(self.recommendation_btn, self.func_generator_btn),
+                                 pn.Row(self.recommendation_btn, self.func_generator_btn, self.ontology_btn),
                                 scroll=True)
         
         self.app = pn.Row(
@@ -387,7 +389,9 @@ class SLEGOApp:
         self.json_text.value = formatted_data
         self.output_text.value = self.get_doc_string(formatted_data)
         
-        #self.json_editor.expand_all()
+
+
+    #self.json_editor.expand_all()
     def json_text_change(self, event):
         """
         Handles changes to the JSON text input, preserving existing modules while adding
@@ -401,15 +405,19 @@ class SLEGOApp:
         # Clean up the input text
         text = self.json_text.value
 
-        # Replace all `true`/`false` (any case) with "true"/"false" strings
-        text = re.sub(r'\b(true|false)\b', lambda match: f'"{match.group(0).lower()}"', text, flags=re.IGNORECASE)
+        # Normalize Boolean and None values to JSON-compatible values
+        text = re.sub(r'\b(True|true|False|false|None|null)\b', 
+                    lambda match: {"True": "true", "true": "true",
+                                    "False": "false", "false": "false",
+                                    "None": "null", "null": "null"}[match.group(0)], 
+                    text)
+        text = text.replace("'", '"')  # Replace single quotes with double quotes for JSON compatibility
+        # "None" to ""
+        text = text.replace("None", '""')
 
-
-        text = text.replace("'", '"')
-        
         try:
             # Parse the JSON text
-            pipeline_dict = json.loads(text)
+            pipeline_dict = json.loads(text)  # Attempt to parse the JSON after normalization
             pipeline_dict_json = json.dumps(pipeline_dict, indent=4)
             
             # Extract module names from function keys
@@ -1001,7 +1009,7 @@ class SLEGOApp:
             net.add_edge(u, v, label=label, title=label)
 
         # Generate and show the network
-        output_html = 'slegospace/ontologyspace/interactive_graph.html'
+        output_html = './ontologyspace/interactive_graph.html'
         net.show(output_html)
         webbrowser.open('file://' + os.path.realpath(output_html))
         print(f"Visualization saved to {output_html} and opened in your default browser.")
@@ -1047,8 +1055,8 @@ class SLEGOApp:
             return
         
         # Example usage of the function
-        file_path = 'slegospace/ontologyspace/hfd.ttl'
-        subgraph_file = 'slegospace/ontologyspace/hfd_subgraph.ttl'
+        file_path = './ontologyspace/hfd.ttl'
+        subgraph_file = './ontologyspace/hfd_subgraph.ttl'
 
         # Call the function with the query as a parameter
         self.extract_and_visualize_subgraph(file_path, subgraph_file, sparql_query)
