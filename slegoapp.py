@@ -1,33 +1,33 @@
 import os
 import sys
-import subprocess
+import subprocess  # For running shell commands
 import platform
 import logging
-import json
-import re
-import time
-import inspect
-import itertools
-import importlib
+import json  # For working with JSON data
+import re  # For regular expressions
+import time  # For working with time
+import inspect  # For inspecting objects
+import itertools  # For working with iterators
+import importlib  # For importing modules dynamically
 from datetime import datetime
 from typing import Dict, Any
-import ast
-import rdflib
+import ast  # For parsing Python code
+import sqlite3  # For SQLite database interaction
+import shutil  # For deleting folders
 import asyncio
+from collections import OrderedDict
 from IPython.display import Javascript, display
-
-from rdflib import Graph, URIRef
-from pyvis.network import Network
-import logging
-import webbrowser
-import os
-import panel as pn
 import pandas as pd
-import kglab
-from pyvis.network import Network
-from rdflib import URIRef
-import networkx as nx
-# Install required packages if they are not already installed
+import rdflib
+from rdflib import Graph, URIRef  # For RDF graph handling
+import networkx as nx  # For network graph structures
+from pyvis.network import Network  # For interactive graph visualizations
+import pandas as pd  # For data manipulation with DataFrames
+import panel as pn  # For creating interactive panels
+import kglab  # For knowledge graph handling with rdflib
+import webbrowser  # For opening web content in the browser
+import tempfile
+
 
 def check_and_install_packages():
     required_packages = ['panel', 'param', 'pandas', 'kglab', 'pyvis', 'rdflib']
@@ -184,6 +184,7 @@ class SLEGOApp:
         self.funccombo_pane = pn.Column()
 
         self.checkbox_view = pn.widgets.Checkbox(name='Open file', value=False, height=15)
+        self.show_graph_btn = pn.widgets.Button(name='Show Graph', height=35)
         logger.info("Widgets initialized.")
 
     def setup_func_module(self):
@@ -225,6 +226,7 @@ class SLEGOApp:
         self.file_delete.on_click(self.on_file_buttons_click)
         self.folder_select.param.watch(self.folder_select_changed, 'value')
         self.ontology_btn.on_click(self.ontology_btn_click)
+        self.show_graph_btn.on_click(self.show_graph)
 
         # Added event handler for recommendation button
         self.recommendation_btn.on_click(self.recommendation_btn_clicked)
@@ -239,7 +241,9 @@ class SLEGOApp:
             scroll=True,
             
         )
-        widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, )
+        #widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, )
+        widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, self.show_graph_btn)
+
         widget_updownload = pn.Column(self.checkbox_view,
             pn.Row(pn.Row(self.file_view) , self.file_download),
             pn.Row(self.file_input, self.rules_button, width=280, height=50),
@@ -301,12 +305,15 @@ class SLEGOApp:
     def update_func_module(self, module_names):
         logger.info(f"Updating functions for selected modules: {module_names}")
         if not module_names:
-            self.funccombo_pane.objects = []
+            self.self.funccombo.options = []
             self.output_text.value = "No modules selected."
             return
 
         self.modules = {}
-        self.funcs = {}
+        self.funcs = OrderedDict()  # Use OrderedDict to preserve function order
+
+        # Save previous selected functions and their order
+        previous_selected_funcs = self.funccombo.value if hasattr(self, 'funccombo') else []
 
         # Import selected modules dynamically
         for module_name in module_names:
@@ -322,14 +329,27 @@ class SLEGOApp:
             self.modules[module_name] = module
 
             # Get functions from the module
-            module_functions = self.get_functions_from_module(module, module_name)
+            module_functions = self.get_functions_from_module(module, module_name, module_path)
             self.funcs.update(module_functions)
 
         # Update function combo box
-        self.funccombo = self.create_multi_select_combobox(self.funcs)
-        self.funccombo_pane.objects = [self.funccombo]
-        # Set up event handler for the new funccombo
-        self.funccombo.param.watch(self.funccombo_change, 'value')
+        options = list(self.funcs.keys())
+
+        if not hasattr(self, 'funccombo'):
+            # Create the funccombo widget if it doesn't exist
+            self.funccombo = pn.widgets.MultiChoice(name='Select Components:', options=options, height=150)
+            self.funccombo_pane.objects = [self.funccombo]
+            # Set up event handler for the new funccombo
+            self.funccombo.param.watch(self.funccombo_change, 'value')
+        else:
+            # Update options without recreating the widget
+            self.funccombo.options = options
+
+        # Restore the previous selection, preserving order
+        # Keep only those functions that are still valid
+        new_selected_funcs = [func for func in previous_selected_funcs if func in options]
+        self.funccombo.value = new_selected_funcs
+
         logger.info("Function combobox updated based on the selected modules.")
 
     def setup_full_func_mapping(self):
@@ -361,12 +381,18 @@ class SLEGOApp:
         return function_names
 
 
-    def get_functions_from_module(self, module, module_name):
-        functions = {}
-        for name, obj in inspect.getmembers(module, inspect.isfunction):
-            if obj.__module__ == module.__name__ and not name.startswith('_'):
-                func_key = f"{module_name[:-3]}.{name}"
-                functions[func_key] = obj
+    def get_functions_from_module(self, module, module_name, module_path):
+        functions = OrderedDict()
+        with open(module_path, 'r') as file:
+            source = file.read()
+        tree = ast.parse(source)
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef):
+                name = node.name
+                if not name.startswith('_'):
+                    func_key = f"{module_name[:-3]}.{name}"
+                    func = getattr(module, name)
+                    functions[func_key] = func
         return functions
 
     def funccombo_change(self, event):
@@ -390,18 +416,10 @@ class SLEGOApp:
         self.output_text.value = self.get_doc_string(formatted_data)
         
 
-
     #self.json_editor.expand_all()
     def json_text_change(self, event):
-        """
-        Handles changes to the JSON text input, preserving existing modules while adding
-        new ones required by the JSON content.
-        
-        Parameters:
-            event: The event object containing the new JSON text value
-        """
         logger.info("JSON text input changed.")
-        
+
         # Clean up the input text
         text = self.json_text.value
 
@@ -412,50 +430,43 @@ class SLEGOApp:
                                     "None": "null", "null": "null"}[match.group(0)], 
                     text)
         text = text.replace("'", '"')  # Replace single quotes with double quotes for JSON compatibility
-        # "None" to ""
         text = text.replace("None", '""')
 
         try:
-            # Parse the JSON text
-            pipeline_dict = json.loads(text)  # Attempt to parse the JSON after normalization
-            pipeline_dict_json = json.dumps(pipeline_dict, indent=4)
-            
+            # Parse the JSON text into an OrderedDict to maintain order
+            pipeline_dict = json.loads(text, object_pairs_hook=OrderedDict)
+
             # Extract module names from function keys
             required_modules = set()
             for func_key in pipeline_dict.keys():
                 if '.' in func_key:
                     module_name = func_key.split('.')[0] + '.py'
                     required_modules.add(module_name)
-            
-            # Get current modules and add new required ones
+
+            # Update module selection if needed
             current_modules = set(self.funcfilecombo.value)
             modules_to_add = required_modules - current_modules
-            
             if modules_to_add:
-                # Only add new modules, preserve existing ones
                 updated_modules = list(current_modules | modules_to_add)
                 logger.info(f"Adding new modules: {modules_to_add}")
                 self.funcfilecombo.value = updated_modules
-                
-                # Update function modules with combined set
-                self.update_func_module(updated_modules)
-            
-            # Update the JSON editor and text values
+
+            # Update the JSON editor and text values, maintaining order
+            pipeline_dict_json = json.dumps(pipeline_dict, indent=4)
             self.json_text.value = pipeline_dict_json
             self.json_editor.value = pipeline_dict
-            
+
             # Update function selection in funccombo if it exists
             if hasattr(self, 'funccombo'):
                 func_keys = list(pipeline_dict.keys())
                 current_funcs = set(self.funccombo.value)
-                # Preserve existing function selections and add new ones
                 updated_funcs = list(current_funcs | set(func_keys))
                 self.funccombo.value = updated_funcs
-            
+
             self.output_text.value = 'Input changed successfully! Existing modules preserved.'
             if modules_to_add:
                 self.output_text.value += f'\nNew modules added: {", ".join(modules_to_add)}'
-            
+
         except json.JSONDecodeError as e:
             error_msg = f'Error parsing JSON input: {str(e)}'
             self.output_text.value = error_msg
@@ -578,6 +589,19 @@ class SLEGOApp:
                 self.output_text.value += f"\n===== {func_key} =====\n\n"
                 self.output_text.value += f"Function computation time: {compute_time:.4f} seconds\n\n"
                 self.output_text.value += result_string
+            # Check if result is HTML
+                if result_string.strip().startswith("<html"):
+                    # Define a custom directory
+                    custom_directory = '/path/to/your/desired/directory'
+                    # Ensure the directory exists
+                    if not os.path.exists(custom_directory):
+                        os.makedirs(custom_directory)
+                    # Save the HTML content to the custom directory
+                    file_path = os.path.join(custom_directory, f"{func_key.replace('.', '_')}.html")
+                    with open(file_path, 'w', encoding='utf-8') as html_file:
+                        html_file.write(result_string)
+                    self.open_with_default_app(file_path)
+
                 logger.info(f"Function {func_key} computed successfully.")
             except Exception as e:
                 self.output_text.value += f"\n===== {func_key} =====\n\n"
@@ -752,14 +776,13 @@ class SLEGOApp:
 
     def on_file_buttons_click(self, event):
         logger.info(f"File button '{event.obj.name}' clicked.")
-        self.output_text.value =''
+        self.output_text.value = ''
 
         filename = self.file_table.current_view.loc[self.file_table.selection[0]].values[0]
         file_path = os.path.join(self.folder_path, self.file_text.value.lstrip('/'), filename)
         self.output_text.value += "select: " + filename
 
         if event.obj.name == 'View':
-            
             if self.checkbox_view.value:
                 self.open_with_default_app(file_path)
             if os.path.isdir(file_path):
@@ -780,15 +803,22 @@ class SLEGOApp:
         elif event.obj.name == 'Delete':
             # Confirm deletion
             self.output_text.value = 'Are you sure you want to delete the selected file(s)? Please type "delete" in the user input textbox.'
-            #user input type are delete:
+            
             if self.input_text.value == 'delete':
-                os.remove(file_path)
-                self.output_text.value += f"\nDeleted file: {filename}"
-                logger.info(f"Deleted file: {filename}")
+                if os.path.isdir(file_path):
+                    # If it's a folder, delete it with all contents
+                    shutil.rmtree(file_path)
+                    self.output_text.value += f"\nDeleted folder: {filename}"
+                else:
+                    os.remove(file_path)
+                    self.output_text.value += f"\nDeleted file: {filename}"
+                    
+                logger.info(f"Deleted: {filename}")
                 self.refresh_file_table()  # Refresh table after deletion
             else:
-                #self.output_text.value += f"\nDeletion cancelled."
-                logger.info(f"Deletion cancelled.")
+                logger.info("Deletion cancelled.")
+                self.output_text.value += "\nDeletion cancelled."
+
 
 
     def on_filefolder_confirm_btn_click(self, event):
@@ -1046,6 +1076,9 @@ class SLEGOApp:
         # Visualize the subgraph
         self.visualize_query_results_interactive(results)
 
+
+
+
     def ontology_btn_click(self, event):
 
         sparql_query = self.input_text.value.strip()  # Ensure no leading/trailing spaces
@@ -1160,3 +1193,136 @@ class SLEGOApp:
     def is_colab_runtime():
         return 'google.colab' in sys.modules
 
+
+
+
+    def show_graph(self, event):
+        """Retrieve and display an interactive graph based on selected components in funccombo.
+        Additionally, save a CSV describing the full pipeline structure and an HTML file for visualization,
+        with selected components highlighted in green, saving all output in the ontologyspace folder.
+        """
+        selected_components = self.funccombo.value  # Get selected components from the funccombo widget
+
+        # Check if any components are selected
+        if not selected_components:
+            self.output_text.value = "No components selected. Please select one or more components to view related pipelines."
+            return
+
+        # Connect to the knowledge.db database
+        db_path = os.path.join(self.folder_path, 'knowledge.db')
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Dictionary to store selected components and their related full pipeline details
+        full_pipeline_data = {}
+
+        for component in selected_components:
+            # Extract the component name (exclude function name)
+            component_name = component.split('.')[1]
+            cursor.execute("SELECT pipeline_names FROM functions WHERE component_name = ?", (component_name,))
+            result = cursor.fetchone()
+
+            if result:
+                # Convert JSON string to list of pipelines
+                pipelines = json.loads(result[0]) if result[0] else []
+                for pipeline in pipelines:
+                    # Retrieve the full details for each pipeline that includes the selected component
+                    cursor.execute("SELECT pipeline_name, pipeline_details, description FROM pipelines WHERE pipeline_name = ?", (pipeline,))
+                    pipeline_result = cursor.fetchone()
+                    if pipeline_result:
+                        pipeline_name, pipeline_details, description = pipeline_result
+                        details = json.loads(pipeline_details, object_pairs_hook=OrderedDict)  # Maintain order
+                        full_pipeline_data[pipeline_name] = (details, description)
+                    else:
+                        print(f"No details found for pipeline: {pipeline}")
+            else:
+                print(f"Component {component_name} not found in the database.")
+
+        conn.close()
+
+        if not full_pipeline_data:
+            self.output_text.value = "No related pipelines found for the selected components."
+            return
+
+        # Initialize a NetworkX graph
+        G = nx.DiGraph()
+
+        # Track selected component names without function prefix for color highlighting
+        selected_component_names = {component.split('.')[1] for component in selected_components}
+
+        # Add nodes and edges based on the full pipeline structure
+        graph_data = []  # For saving to CSV
+        for pipeline_name, (pipeline_details, description) in full_pipeline_data.items():
+            # Add the pipeline node in light coral with description as tooltip
+            G.add_node(pipeline_name, type='pipeline', size=40, color='lightcoral', title=description)
+
+            first_connection = True
+            previous_node = None
+
+            for module_name, params in pipeline_details.items():
+                # Prepare tooltip with all parameters for the module node
+                tooltip_text = "\n".join([f"{param_name}: {param_value}" for param_name, param_value in params.items()])
+
+                # Set color based on whether the module is a selected component
+                node_color = 'green' if module_name in selected_component_names else 'lightblue'
+                
+                # If the module node already exists, append new info to its tooltip
+                if G.has_node(module_name):
+                    existing_title = G.nodes[module_name]['title']
+                    G.nodes[module_name]['title'] = existing_title + "\n\n" + tooltip_text
+                else:
+                    # Add each module node with appropriate color and tooltip
+                    G.add_node(module_name, type='module', size=40, color=node_color, title=tooltip_text)
+
+                # Primary solid connection for flow between pipeline and the first module
+                if first_connection:
+                    G.add_edge(pipeline_name, module_name, relation='primary', style='solid', color='black', width=4)
+                    first_connection = False
+                else:
+                    # Regular solid black line for the primary sequential flow
+                    G.add_edge(previous_node, module_name, relation='primary', style='solid', color='black', width=4)
+
+                # Light dashed line for additional relationship from pipeline to each module
+                G.add_edge(pipeline_name, module_name, relation='secondary', style='dashed', color='lightgray', width=1)
+
+                # Update the previous node to the current module for sequential linking
+                previous_node = module_name
+
+                # Add to CSV data
+                graph_data.append({"Pipeline": pipeline_name, "Component": module_name, "Tooltip": tooltip_text})
+
+        # Define the ontologyspace path
+        ontologyspace_path = os.path.join(self.folder_path, "ontologyspace")
+        os.makedirs(ontologyspace_path, exist_ok=True)
+
+        # Save graph data to a CSV file in ontologyspace
+        graph_csv_path = os.path.join(ontologyspace_path, "full_pipeline_structure.csv")
+        pd.DataFrame(graph_data).to_csv(graph_csv_path, index=False)
+        print(f"Full pipeline structure saved to {graph_csv_path}")
+
+        # Set up the interactive PyVis network
+        net = Network(notebook=True, height="800px", width="100%", directed=True)
+        net.force_atlas_2based(gravity=-100, central_gravity=0.015, spring_length=150, spring_strength=0.02, damping=0.4)
+
+        # Add nodes with specific colors directly in PyVis
+        for node, data in G.nodes(data=True):
+            color = data.get('color', 'lightgreen')
+            title = data.get('title', '')  # Tooltip text for nodes
+
+            net.add_node(node, label=node, title=title, color=color, size=40)  # Set color explicitly
+
+        # Customize edges based on their attributes
+        for source, target, data in G.edges(data=True):
+            style = data.get('style', 'solid')
+            color = data.get('color', 'gray')
+            width = data.get('width', 2)
+            net.add_edge(source, target, color=color, width=width, dashes=(style == 'dashed'))
+
+        # Generate the network HTML file in ontologyspace and open it in the default browser
+        output_html = os.path.join(ontologyspace_path, "full_pipeline_graph.html")
+        net.show(output_html)
+        webbrowser.open('file://' + os.path.realpath(output_html))
+        print(f"Interactive custom knowledge graph saved to {output_html}")
+
+        # Update output text to indicate success
+        self.output_text.value = f"Full pipeline graph displayed successfully. CSV saved at {graph_csv_path} and HTML saved at {output_html}."

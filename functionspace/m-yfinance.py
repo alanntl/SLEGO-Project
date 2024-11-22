@@ -111,7 +111,7 @@ def compute_return(input_file_path: str = 'dataspace/dataset.csv',
 
 def plotly_chart(input_file_path: str = 'dataspace/dataset.csv', 
                      index_col: Union[None, int, str] = 0,
-                     x_column: str = 'Date', 
+                     x_column: str = 'Datetime', 
                      y_column: str = 'SMA_Close', 
                      title: str = 'Data Plot', 
                      legend_title:str= 'Legend',

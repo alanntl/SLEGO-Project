@@ -248,3 +248,4 @@ def gather_image_paths(directory: str, supported_formats: tuple = ('.png', '.jpg
         print(f"No images found in directory {directory} with supported formats {supported_formats}.")
 
     return image_files
+

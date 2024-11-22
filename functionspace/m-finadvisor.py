@@ -140,40 +140,88 @@ Previous analyses:
         return f"Error during analysis: {str(e)}"
 
 
-def universal_analyzer(
-    input_paths: Union[str, List[str]] = 'dataspace/input/',
-    output_file: str = 'dataspace/analysis_results.json',
+
+
+def financial_advisor(    files: Union[str, List[str]]= "dataspace/dataset1.csv",
+    analysis_task: str= "Analyze the content of the file and provide insights.",
     api_key: str = '',
-    system_role: str = "You are a highly skilled analyst with expertise in multiple domains.",
-    analysis_task: str = "Analyze this content and provide key insights, patterns, and recommendations.",
-    additional_instructions: str = "",
-    model: str = "gpt-4o",
+    output_file: str = 'analysis_results.json',
+    model: str = 'gpt-4o',
     max_tokens: int = 2000,
-    temperature: float = 0.7,
-    consolidated_analysis: bool = True
-) -> Dict:
+    temperature: float = 0.7
+        ) -> Dict:
     """
-    Universal content analyzer supporting multiple input files and directories.
-    
+    Analyzes content of given files based on a user-defined analysis task.
+
     Parameters:
-    - input_paths: String path or list of paths to analyze
-    - output_file: Where to save analysis results
-    - api_key: OpenAI API key
-    - system_role: Role description for the AI
-    - analysis_task: Main analysis task description
-    - additional_instructions: Extra analysis instructions
-    - model: OpenAI model to use
-    - max_tokens: Maximum tokens in response
-    - temperature: Response randomness (0-1)
-    - consolidated_analysis: Whether to provide a consolidated analysis of all files
-    
+    - files: A single file path or a list of file paths to analyze.
+    - analysis_task: A string describing the analysis to be performed on the content.
+    - api_key: OpenAI API key.
+    - output_file: Path to save the analysis results.
+    - model: OpenAI model to use.
+    - max_tokens: Maximum tokens in response.
+    - temperature: Response randomness (0-1).
+
     Returns:
-    - Dict containing analysis results and metadata
+    - Dict containing analysis results.
     """
+    # Helper function to check if a module is installed
+    def _check_module(module_name: str) -> bool:
+        import importlib.util
+        return importlib.util.find_spec(module_name) is not None
+
+    # Helper function to extract text from HTML content
+    def _extract_text_from_html(html_content: str) -> str:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        for script in soup(["script", "style"]):
+            script.decompose()  # Remove script and style elements
+        return soup.get_text(separator='\n', strip=True)
+
+    # Helper function to read file content
+    def _read_file_content(file_path: str, installed_modules: Dict[str, bool]) -> str:
+        file_extension = os.path.splitext(file_path)[1].lower()
+
+        try:
+            if file_extension == '.txt':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+
+            elif file_extension == '.json':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return json.dumps(json.load(f), indent=2)
+
+            elif file_extension == '.html':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return _extract_text_from_html(f.read())
+
+            elif file_extension == '.pdf' and installed_modules.get('pdfplumber'):
+                import pdfplumber
+                with pdfplumber.open(file_path) as pdf:
+                    return '\n'.join(page.extract_text() for page in pdf.pages if page.extract_text())
+
+            elif file_extension == '.docx' and installed_modules.get('docx'):
+                import docx
+                doc = docx.Document(file_path)
+                return '\n'.join([para.text for para in doc.paragraphs if para.text.strip()])
+
+            elif file_extension in ['.csv', '.xlsx'] and installed_modules.get('pandas'):
+                if file_extension == '.csv':
+                    df = pd.read_csv(file_path)
+                else:
+                    df = pd.read_excel(file_path)
+                return df.to_string()
+
+            else:
+                raise ValueError(f"Unsupported file type: {file_extension}")
+
+        except Exception as e:
+            raise ValueError(f"Error reading {file_extension} file: {str(e)}")
+
+    # Start of the main function logic
     try:
         # Initialize modules and file types
         installed_modules = {
-            module: __check_module(module)
+            module: _check_module(module)
             for module in ['docx', 'pdfplumber', 'pandas', 'openpyxl', 'bs4']
         }
 
@@ -189,163 +237,59 @@ def universal_analyzer(
             raise ValueError("OpenAI API key is required")
 
         client = OpenAI(api_key=api_key)
-        analysis_results = {
-            'system_info': {
-                'installed_modules': installed_modules,
-                'supported_file_types': supported_file_types
-            },
-            'files': {},
-            'consolidated_analysis': None
-        }
+        analysis_results = {}
 
-        def analyze_file(file_path: str) -> Dict:
-            """Analyze a single file."""
+        # Ensure files is a list
+        files = [files] if isinstance(files, str) else files
+
+        # Process each file
+        for file_path in files:
+            if not os.path.isfile(file_path):
+                analysis_results[file_path] = {'error': 'File does not exist'}
+                continue
+
             file_extension = os.path.splitext(file_path)[1].lower()
-            if file_extension in supported_file_types:
-                content = __read_file_content(file_path, installed_modules)
-                analysis = __analyze_content(
-                    client=client,
-                    content=content,
-                    filename=os.path.basename(file_path),
-                    system_role=system_role,
-                    analysis_task=analysis_task,
-                    additional_instructions=additional_instructions,
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature
-                )
-                return {
-                    'file_path': file_path,
-                    'analysis': analysis,
-                    'file_type': file_extension
-                }
-            return {
-                'file_path': file_path,
-                'error': f"Unsupported file type: {file_extension}",
+            if file_extension not in supported_file_types:
+                analysis_results[file_path] = {'error': f'Unsupported file type: {file_extension}'}
+                continue
+
+            # Read the file content
+            content = _read_file_content(file_path, installed_modules)
+
+            # Prepare the message for OpenAI API
+            messages = [
+                {"role": "system", "content": "You are an expert analyst."},
+                {"role": "user", "content": f"Please perform the following analysis task on the content:\n\n{analysis_task}\n\nContent:\n{content}"}
+            ]
+
+            # Call the OpenAI API
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+
+            # Extract the analysis result
+            analysis = response.choices[0].message.content
+
+            # Store the result
+            analysis_results[file_path] = {
+                'analysis': analysis,
                 'file_type': file_extension
             }
 
-        def process_path(path: str) -> List[Dict]:
-            """Process a single path (file or directory)."""
-            results = []
-            if os.path.isfile(path):
-                results.append(analyze_file(path))
-            elif os.path.isdir(path):
-                for root, _, files in os.walk(path):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        results.append(analyze_file(file_path))
-            return results
-
-        # Process all input paths
-        all_results = []
-        input_paths = [input_paths] if isinstance(input_paths, str) else input_paths
-        
-        for path in input_paths:
-            path_results = process_path(path)
-            all_results.extend(path_results)
-            
-        # Store individual file analyses
-        for result in all_results:
-            file_name = os.path.basename(result['file_path'])
-            analysis_results['files'][file_name] = result
-
-        # Generate consolidated analysis if requested and there are multiple files
-        if consolidated_analysis and len(all_results) > 1:
-            successful_analyses = [r for r in all_results if 'error' not in r]
-            if successful_analyses:
-                combined_content = "\n\n".join([
-                    f"File: {os.path.basename(r['file_path'])} (Type: {r['file_type']})\n"
-                    f"Analysis:\n{r['analysis']}"
-                    for r in successful_analyses
-                ])
-                
-                consolidated = __analyze_content(
-                    client=client,
-                    content=combined_content,
-                    filename="All Files",
-                    system_role=system_role,
-                    analysis_task=f"{analysis_task}\n\nProvide a consolidated analysis of all files.",
-                    additional_instructions=f"{additional_instructions}\n\nFocus on connections and patterns across all files.",
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature
-                )
-                
-                analysis_results['consolidated_analysis'] = consolidated
-
-        # Save results
-        __ensure_directory_exists(output_file)
-        if os.path.exists(output_file):
-            os.remove(output_file)  # Delete existing file if it exists
+        # Save the analysis results to the output file
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(analysis_results, f, indent=4, ensure_ascii=False)
-            
+
         return analysis_results
 
     except Exception as e:
         error_result = {'error': str(e)}
-        __ensure_directory_exists(output_file)
-        if os.path.exists(output_file):
-            os.remove(output_file)  # Delete existing file if it exists
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(error_result, f, indent=4, ensure_ascii=False)
         return error_result
-
-
-
-def financial_advisor(
-    input_paths: Union[str, List[str]] = 'dataspace/input/',
-    output_file: str = 'dataspace/financial_advice.json',
-    api_key: str = '',
-    investment_context: str = "General investment analysis and recommendations",
-    risk_profile: str = "Moderate",
-    time_horizon: str = "Long-term (5+ years)",
-    analysis_task: str = "Provide comprehensive investment analysis and recommendations",
-    model: str = "gpt-4o",
-    max_tokens: int = 2000,
-    temperature: float = 0.7,
-    consolidated_analysis: bool = True
-) -> Dict:
-    """
-    Analyzes multiple financial documents and provides professional investment advice.
-    
-    Parameters:
-    - input_paths: String path or list of paths to financial documents
-    - output_file: Where to save the analysis and recommendations
-    - api_key: OpenAI API key
-    - investment_context: Specific context or goals for the investment analysis
-    - risk_profile: Investment risk profile (e.g., Conservative, Moderate, Aggressive)
-    - time_horizon: Investment time horizon
-    - analysis_task: Specific analysis task or focus
-    - model: OpenAI model to use
-    - max_tokens: Maximum tokens in response
-    - temperature: Response creativity (0-1)
-    - consolidated_analysis: Whether to provide a consolidated analysis of all documents
-    """
-    return universal_analyzer(  input_paths=input_paths,
-                                output_file=output_file,
-                                api_key=api_key,
-                                system_role="""You are a highly experienced financial advisor with expertise in:
-                                - Investment analysis and portfolio management
-                                - Market analysis and trend identification
-                                - Risk assessment and management
-                                - Financial planning and strategy development""",
-                                analysis_task=f"""Investment Context: {investment_context}
-                        Risk Profile: {risk_profile}
-                        Time Horizon: {time_horizon}
-
-                        {analysis_task}""",
-                                additional_instructions="""Provide thorough, professional analysis considering:
-                        - The client's risk profile and investment goals
-                        - Current market conditions and trends
-                        - Potential risks and mitigation strategies
-                        - Long-term investment implications""",
-                                model=model,
-                                max_tokens=max_tokens,
-                                temperature=temperature,
-                                consolidated_analysis=consolidated_analysis
-                            )
 
 
 # =====================================

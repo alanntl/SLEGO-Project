@@ -25,7 +25,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
     # query_embedding = np.array(json.loads(query_embedding_json))
 
     query_embedding = np.array(response.data[0].embedding)
-    top_k = 7
+    top_k = 10
 
     similarities = []
     for pipeline_name, description, microservices_details, embedding_str in pipelines_info:
@@ -87,6 +87,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
         
 
     functions_kb = str(top_pipelines_df.to_dict())
+    #functions_kb = str(all_components)
     conn.close()
 
     # system_message = f'''You are an data analytics expert that recommends pipelines based on user queries. 
@@ -99,6 +100,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
                         You have a knowledge base of pipelines and components, with specific JSON configurations available.
                         When a user provides a query, suggest the most relevant pipeline configuration by modifying the parameters to best fit the user’s needs. 
                         Only recommend components that exist within the knowledge base and ensure that the output JSON format is consistent with existing examples.
+                        However, you can use all components cross different pipelines.
                         Example JSON format for output:
                         {{
                             "function_name": {{
@@ -125,6 +127,8 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
                     f"Make sure to use only components from the knowledge base and keep the output in the same JSON format."
                     f"Explain why each recommended pipeline component is a good fit and provide any relevant details for parameter adaptation."
                     f"Output format should follow this example JSON format: {prompt_format}"
+                    f"actually you are encoruage to grab the functions from different pipelines, but make sure the whole pipelien make sense and not doing many different things."
+                    f"dont give comment inside the json, becuase users cannot copy and paste the json into the program"
                     )
 
     response = client.chat.completions.create(
@@ -167,6 +171,8 @@ def pipeline_parameters_recommendation(user_query, generated_pipeline, openai_ap
                     f"Pipeline Structure: {generated_pipeline}."
                     f"Retain the given structure, making modifications only to the parameter values."
                     f"Ensure the parameters align with the user’s task while staying true to the pipeline's intended functionality."
+                    f"rename the parameters of input and ouput file path name match the user's task."
+                    f"dont give comment inside the json, becuase users cannot copy and paste the json into the program"
                 )
 
     response = client.chat.completions.create(

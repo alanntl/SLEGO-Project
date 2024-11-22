@@ -12,6 +12,7 @@ __pycache__/
 *copy.ipynb
 
 # Secrets and environment files
+.eggs/
 .env
 .env.local
 *.env
@@ -55,3 +56,4 @@ recsys.ipynb
 temp/
 
 config.py
+/lib
