@@ -27,7 +27,7 @@ import panel as pn  # For creating interactive panels
 import kglab  # For knowledge graph handling with rdflib
 import webbrowser  # For opening web content in the browser
 import tempfile
-
+from openai import OpenAI
 
 def check_and_install_packages():
     required_packages = ['panel', 'param', 'pandas', 'kglab', 'pyvis', 'rdflib']
@@ -51,6 +51,7 @@ from rdflib import URIRef
 import utils.recommender as rc
 import utils.validate_func as vf
 import utils.function_generator as fg
+import utils.validation_engine as ve
 
 
 
@@ -59,7 +60,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Panel extensions
-pn.extension('ace', 'jsoneditor', 'tabulator', sizing_mode='stretch_both')
+pn.extension('ace', 'jsoneditor', 'tabulator', 'codeeditor', sizing_mode='stretch_both')
 
 class SLEGOApp:
     def __init__(self, config: Dict[str, Any]):
@@ -85,6 +86,8 @@ class SLEGOApp:
         self.setup_func_module()
         self.setup_event_handlers()
         self.create_layout()
+        self.create_microservice_editor_layout()
+        self.create_kb_editor_layout()
         self.create_template()
         self.full_func_mapping_path = 'full_func.json'
         self.setup_full_func_mapping()
@@ -147,7 +150,7 @@ class SLEGOApp:
             height=35
         )
 
-        self.func_generator_btn = pn.widgets.Button(name='Generate Function', height=35, button_type='success')
+        self.func_generator_btn = pn.widgets.Button(name='Get Explaination', height=35, button_type='success')
 
         # File management widgets
         self.folder_select = pn.widgets.Select(
@@ -166,9 +169,17 @@ class SLEGOApp:
         self.file_view = pn.widgets.Button(name='View', height=35)
         self.file_download = pn.widgets.Button(name='Download', height=35)
         self.file_upload = pn.widgets.Button(name='Upload', height=35)
-        self.file_input = pn.widgets.FileInput(name='Upload file', height=35)
+        self.file_input = pn.widgets.FileInput( height=35)
         self.file_delete = pn.widgets.Button(name='Delete', height=35)
+
+        self.file_edit = pn.widgets.Button(name='Edit', height=35)
+        self.file_save = pn.widgets.Button(name='Save', height=35)
+
+
+
+        self.kb_table = pn.widgets.Tabulator(pd.DataFrame(), header_filters=True, show_index=False,)
         self.file_table = self.create_file_table()
+        
 
         self.param_widget_tab = pn.Tabs(
             ('JSON Input', self.json_editor), 
@@ -185,6 +196,9 @@ class SLEGOApp:
 
         self.checkbox_view = pn.widgets.Checkbox(name='Open file', value=False, height=15)
         self.show_graph_btn = pn.widgets.Button(name='Show Graph', height=35)
+        self.code_editor = pn.widgets.CodeEditor(name='CodeEditor',  language='python', sizing_mode='stretch_both', min_height=300)
+        self.kb_table_list = pn.widgets.Select(name='Select Kowledge Base Table', options=['functions', 'pipelines'], height=35, value = 'pipelines')
+
         logger.info("Widgets initialized.")
 
     def setup_func_module(self):
@@ -227,20 +241,35 @@ class SLEGOApp:
         self.folder_select.param.watch(self.folder_select_changed, 'value')
         self.ontology_btn.on_click(self.ontology_btn_click)
         self.show_graph_btn.on_click(self.show_graph)
+        self.file_edit.on_click(self.on_file_buttons_click)
+        self.file_save.on_click(self.save_edited_file)
 
         # Added event handler for recommendation button
         self.recommendation_btn.on_click(self.recommendation_btn_clicked)
         self.func_generator_btn.on_click(self.func_generator_btn_click)
+        self.kb_table_list.param.watch(self.kb_table_list_change, 'value')
+
         logger.info("Event handlers set up.")
+
+    def main_tabs_change(self,event):
+        if event.new == 0:
+            self.folder_select.value = 'dataspace'
+        elif event.new == 1:
+            self.folder_select.value = 'functionspace'
+        elif event.new == 2:
+            self.folder_select.value = 'knowledgespace'
+
+
+    def kb_table_list_change(self, event):
+        self.load_and_edit_table(db_path='./knowledge.db', table_name=event.new)
+    
 
     def create_layout(self):
         logger.info("Creating layout...")
         param_widget_input = pn.Column(
             #pn.layout.Divider(height=10, margin=(10)), 
             self.param_widget_tab,
-            scroll=True,
-            
-        )
+            scroll=True)
         #widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, )
         widget_btns = pn.Row(self.savepipe_btn, self.pipeline_text, self.show_graph_btn)
 
@@ -248,9 +277,12 @@ class SLEGOApp:
             pn.Row(pn.Row(self.file_view) , self.file_download),
             pn.Row(self.file_input, self.rules_button, width=280, height=50),
             pn.Row(self.file_upload, self.file_delete),
+            pn.Row(self.file_edit, self.file_save),
+
+
             scroll=True,
         )
-        widget_files = pn.Column(
+        self.widget_files = pn.Column(
             self.folder_select,
             pn.Row(self.file_text, self.filefolder_confirm_btn),
             pn.layout.Divider(height=10, margin=(10)),
@@ -267,7 +299,6 @@ class SLEGOApp:
             #min_width=300
             scroll=True,
         )
-
         # Added recommendation widgets to the layout
         widget_recom = pn.Column(self.input_text,
                                  self.recomAPI_text,
@@ -275,9 +306,9 @@ class SLEGOApp:
                                 scroll=True)
         
         self.app = pn.Row(
-            pn.Column(widget_files,
+            pn.Column(self.widget_files,
                       min_width=200, 
-                      max_width=300),
+                      max_width=320),
             pn.Column(widget_funcsel, 
                       self.output_text,
                       min_height=300,
@@ -289,13 +320,77 @@ class SLEGOApp:
                 pn.layout.Divider(height=10, margin=(10)), 
                 pn.Column(widget_recom, scroll=True),  
                 min_height=300,
-                min_width=300,
-                               
+                min_width=300,                  
             ), 
- 
             scroll=True,margin=(10, 0, 0, 0),
         )
         logger.info("Layout created.")
+
+    def create_microservice_editor_layout(self):
+
+        self.microservice_editor = pn.Row (pn.Column(self.widget_files,min_width=300, max_width=300),     
+                                            pn.Column( self.code_editor,  pn.Column(self.output_text,max_height=100)))
+        #self.folder_select.value = 'functionspace'
+
+
+    def create_kb_editor_layout(self):
+        self.load_and_edit_table(db_path='./knowledge.db', table_name=self.kb_table_list.value)
+        
+        self.kb_editor = pn.Row (pn.Column(self.widget_files,min_width=300, max_width=300),     
+                                            pn.Column( self.kb_table_list, self.kb_table,  pn.Column(self.output_text,max_height=100)))
+        #self.folder_select.value = 'knoed'
+
+    def load_and_edit_table(self, db_path, table_name):
+        """
+        Load a table from the SQLite database into the kb_table widget
+        and allow for editing.
+        
+        Args:
+            db_path (str): Path to the SQLite database file.
+            table_name (str): Name of the table to load.
+        """
+        try:
+            # Connect to the database
+            conn = sqlite3.connect(db_path)
+            
+            # Query the specified table
+            query_data = f"SELECT * FROM {table_name};"
+            data = pd.read_sql(query_data, conn)
+            conn.close()
+            
+            # Populate the kb_table widget with data
+            self.kb_table.value = data
+            self.kb_table.editable = True  # Enable editing
+            
+            # Add an event listener to save changes back to the database
+            def save_changes(event):
+                try:
+                    edited_data = self.kb_table.value  # Get the edited DataFrame
+                    conn = sqlite3.connect(db_path)
+                    
+                    # Drop and recreate the table (simplified approach)
+                    data.to_sql(table_name, conn, if_exists='replace', index=False)
+                    conn.close()
+                    
+                    self.output_text.value = f"Changes saved to the '{table_name}' table in the database."
+                except Exception as e:
+                    self.output_text.value = f"Error saving changes: {e}"
+                    logger.error(f"Error saving changes: {e}")
+            
+            # Attach the save_changes function to a save button
+            self.save_button = pn.widgets.Button(name="Save Changes", button_type="success")
+            self.save_button.on_click(save_changes)
+            
+            # Update the layout to include the save button
+            self.create_kb_editor_layout = pn.Column(
+                self.kb_table,
+                self.save_button,
+                self.output_text
+            )
+            self.output_text.value = f"Table '{table_name}' loaded successfully. Make edits and click 'Save Changes'."
+        except Exception as e:
+            self.output_text.value = f"Error loading table: {e}"
+            logger.error(f"Error loading table: {e}")
 
     def funcfilecombo_change(self, event):
         logger.info(f"funcfilecombo changed: {event.new}")
@@ -569,6 +664,50 @@ class SLEGOApp:
 
         os.remove(temp_file_path)
 
+    def save_edited_file(self, event):
+        """Save the current content of the code editor back to the currently edited file."""
+        if self.main_tabs.active == 1:
+            if self.selected_fileedit_path!= '':
+                try:
+                    new_content = self.code_editor.value
+                    with open(self.selected_fileedit_path, 'w') as f:
+                        f.write(new_content)
+                    self.output_text.value = f"File {os.path.basename(self.selected_fileedit_path)} saved successfully."
+                    self.refresh_file_table()
+                    self.selected_fileedit_path =''
+                except Exception as e:
+                    self.output_text.value = f"Error saving file: {e}"
+                    logger.error(f"Error saving file: {e}")
+                    self.selected_fileedit_path =''
+            else:
+                self.output_text.value = "No file is currently selected for editing or the file does not exist."
+        elif self.main_tabs.active == 2:
+            self.replace_knowledge_base(db_path='knowledge.db', table_name=self.kb_table_list.value, updated_dataframe=self.kb_table.value)
+            self.output_text.value = "Knowledge base has been updated successfully."
+
+        
+    def replace_knowledge_base(self, db_path, table_name, updated_dataframe):
+        """
+        Replace the specified table in the database with the contents of a Pandas DataFrame.
+
+        Args:
+            db_path (str): Path to the SQLite database.
+            table_name (str): Name of the table to replace.
+            updated_dataframe (pd.DataFrame): DataFrame containing the updated data.
+        """
+        try:
+            # Connect to the SQLite database
+            conn = sqlite3.connect(db_path)
+
+            # Replace the table with the updated DataFrame
+            updated_dataframe.to_sql(table_name, conn, if_exists='replace', index=False)
+
+            print(f"Table '{table_name}' replaced successfully in the database.")
+        except Exception as e:
+            print(f"Error replacing table '{table_name}': {e}")
+        finally:
+            conn.close()
+
     def compute_btn_clicked(self, event):
         logger.info("Compute button clicked.")
         self.input_text.value = 'Computing...'
@@ -615,6 +754,8 @@ class SLEGOApp:
         self.refresh_file_table()
 
 
+
+
     def output_formatting(self, result):
         max_rows = 10
         max_words = 500
@@ -647,11 +788,56 @@ class SLEGOApp:
                 final += "\n... (truncated)"
 
         return final
-
     
+    def generate_description(self, details, client):
+        """Generate a detailed description for the pipeline using OpenAI's GPT model."""
+        
+        prompt = f"""
+            You are a technical writer with expertise in documenting complex data analytics pipelines. 
+            Your task is to craft a concise, informative, and engaging description for the following pipeline configuration. 
+            
+            Focus on making each description unique, ensuring it reflects the specific details and purpose of the pipeline. Avoid using a rigid template or overly repetitive phrasing.
+
+            Here are the pipeline's configuration details for reference:
+            {details}
+            
+            Please include:
+            - A clear and compelling statement of the pipeline's purpose.
+            - descriptions of the main components and their functions.
+            - Highlight key components and their specific roles, using varied sentence structures and terminology.
+            - A summary of what types of input data the pipeline processes and the outputs it generates.
+            - An overview of how the pipeline operates, describing the flow of data between components.
+            - A brief mention of the expected outcomes or the real-world problem the pipeline addresses.
+
+            Example tone:
+            "This pipeline is designed to optimize customer engagement by processing raw clickstream data into actionable insights. It employs a data ingestion module to collect streams, a transformation engine for cleansing and enrichment, and a machine learning model for predictive analysis. By analyzing user behavior patterns, the system outputs recommendations that enhance user retention strategies."
+            
+            Write a unique description for the given details below:
+        """
+        
+        response = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            model="gpt-4o",
+        )
+    
+        return response.choices[0].message.content.strip()
+
+    def generate_embedding(self, details, client):
+        """Generate an embedding vector for the pipeline details using OpenAI's embedding model."""
+        response = client.embeddings.create(
+            input= details,
+            model="text-embedding-ada-002"
+        )
+        return response.data[0].embedding
 
     def save_pipeline(self, event):
         logger.info("Save pipeline button clicked.")
+        self.output_text.value = 'Saving pipeline...'
         pipeline_name = self.pipeline_text.value if self.pipeline_text.value else '__'
         # Replace JavaScript-style JSON values with Python-compatible values
         text = self.json_text.value
@@ -669,6 +855,55 @@ class SLEGOApp:
             # Save the record using the pipeline_name and data
             self.save_record('knowledgespace', data, pipeline_name)
             self.on_filefolder_confirm_btn_click(None)
+            # Save the pipeline record as a JSON file
+
+            pipeline_details = json.dumps(data, indent=2)
+            description = ''
+            embedding_json = []
+            db_path = './knowledge.db'  # Path to your knowledge base database
+            openai_api_key = self.recomAPI_text.value
+            # Insert pipeline data into knowledge base (ensure these functions are defined)
+            # generate_description and generate_embedding are assumed to be available from previous code.
+            try:    
+                client = OpenAI(api_key=openai_api_key)
+                #self.output_text.value += '**1'
+                description = self.generate_description(pipeline_details, client)  
+                #self.output_text.value += '**2'
+                embedding = self.generate_embedding(pipeline_details,  client)
+                #self.output_text.value += '**3'
+                # Convert embedding list to JSON format for storage
+                embedding_json = json.dumps(embedding)
+
+                
+
+            except Exception as e:
+                logger.error(f"Error saving pipeline: {e}")
+                self.output_text.value += f"\nError saving pipeline: {e}"
+                self.output_text.value += "\nError generating description or embedding. Please ensure the correct openai api key is provided. The pipeline is saved without embedding and description"
+                
+
+            # Insert pipeline data into the pipelines table
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO pipelines (pipeline_name, description, pipeline_details, embedding)
+                VALUES (?, ?, ?, ?)
+            ''', (pipeline_name, description, pipeline_details, embedding_json))
+
+
+            
+            
+            conn.commit()
+            conn.close()
+
+            # Refresh the file table and confirm to user
+            self.on_filefolder_confirm_btn_click(None)
+            self.output_text.value += f"\nPipeline '{pipeline_name}' also saved to the knowledge base."
+
+            self.update_pipeline_in_functions( db_path = db_path, 
+                                              pipeline_name = pipeline_name, 
+                                              pipeline_details = pipeline_details)
+            
         except Exception as e:
             logger.error(f"Error saving pipeline: {e}")
             self.output_text.value += f"\nError saving pipeline: {e}"
@@ -736,8 +971,15 @@ class SLEGOApp:
             with open(temp_file_path, 'wb') as f:
                 f.write(file_content)
 
-            flag, message, proposed_correction = vf.function_validation_result(temp_file_path, self.recomAPI_text.value)
-            
+            # Call the validation engine
+            validation_results = ve.validate_microservice(temp_file_path)
+
+            if validation_results["status"] == "error":
+                self.output_text.value = f"Validation failed for {filename}:\n" + "\n".join(validation_results["errors"])
+                os.remove(temp_file_path)
+                return
+
+            # Proceed with file upload if validation succeeds
             folder = self.folder_path + '/' + self.file_text.value
             file_path = folder + '/' + filename
 
@@ -747,31 +989,25 @@ class SLEGOApp:
                 file_path = folder + '/' + filename
                 self.output_text.value += f'File with the same name already exists. Renaming to {filename}...'
 
-            # add the generated functions' import statement to the file_path
+            # Add the generated functions' import statements to the file_path
             import_statements = vf.extract_import_statements(temp_file_path)
-            
+
             with open(file_path, 'w') as f:
                 for statement in import_statements:
                     f.write(statement)
                     f.write('\n')
                 f.write('\n')
-                for _, correction in proposed_correction.items():
-                    f.write(correction)
-                    f.write('\n\n')
+                f.write(file_content.decode('utf-8'))
 
-            if flag is False:
-                self.output_text.value = "\n\n##################File Upload Success BUT with modification##################\n\n" + message
-                                
-            else:
+            self.output_text.value += f'\n\n################## {filename} uploaded successfully! ##############\n\n'
 
-                self.output_text.value += f'\n\n##################{filename} uploaded successfully!##############\n\n' + message
-                
             self.refresh_file_table()
             self.refresh_funcfilecombo()
 
             os.remove(temp_file_path)
         else:
             self.output_text.value = 'Please select a file to upload!'
+
 
 
     def on_file_buttons_click(self, event):
@@ -818,7 +1054,11 @@ class SLEGOApp:
             else:
                 logger.info("Deletion cancelled.")
                 self.output_text.value += "\nDeletion cancelled."
-
+        elif event.obj.name == 'Edit':
+            self.selected_fileedit_path = file_path
+            with open(self.selected_fileedit_path, 'r') as file:
+                content = file.read()
+            self.code_editor.value = content
 
 
     def on_filefolder_confirm_btn_click(self, event):
@@ -1153,18 +1393,16 @@ class SLEGOApp:
         """, min_width=600)
 
 
-        # Main application content (placeholder)
-        main_content = pn.pane.Markdown("""
-        # Main Application
 
-        This is the main content area of the application.
-        """)
-
-        
-        main_tabs = pn.Tabs(('SLEGO-App',self.app),
+        self.main_tabs = pn.Tabs(('SLEGO-App',self.app),
+            ('Microservice Editor', self.microservice_editor ),
+            ('Knowledge Base Editor', self.kb_editor),
             ('Software Introduction', software_intro),
             ('About the Creator', creator_info),
             scroll=True, )
+
+        self.main_tabs.param.watch(self.main_tabs_change, 'active')
+
 
         logger.info("Running the app...")
         if modules:
@@ -1176,7 +1414,7 @@ class SLEGOApp:
 
         if not self.is_colab_runtime():
             self.rules_button.on_click(self.toggle_rule)
-            self.template.main.append(main_tabs)
+            self.template.main.append(self.main_tabs)
             # template.sidebar,
             # template.collapsed_sidebar = True
             
@@ -1192,8 +1430,6 @@ class SLEGOApp:
     @staticmethod
     def is_colab_runtime():
         return 'google.colab' in sys.modules
-
-
 
 
     def show_graph(self, event):
@@ -1326,3 +1562,68 @@ class SLEGOApp:
 
         # Update output text to indicate success
         self.output_text.value = f"Full pipeline graph displayed successfully. CSV saved at {graph_csv_path} and HTML saved at {output_html}."
+
+
+
+    def update_pipeline_in_functions(self, db_path, pipeline_name, pipeline_details):
+        """
+        Update the `pipeline_names` column in the `functions` table for relevant components and modules,
+        accounting for `.py` extension in `module_name`.
+
+        Args:
+            db_path (str): Path to the SQLite database.
+            pipeline_name (str): Name of the pipeline to be added.
+            pipeline_details (dict or str): Details of the pipeline containing microservices, can be a dict or JSON string.
+        """
+        try:
+            # Deserialize if pipeline_details is a string
+            if isinstance(pipeline_details, str):
+                pipeline_details = json.loads(pipeline_details)
+
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            # Prepare the CASE statement for the SQL query
+            case_statements = []
+            where_clauses = []
+
+            for microservice in pipeline_details.keys():
+                module_name, component_name = microservice.split(".")  # Extract module and component names
+                module_name_with_extension = f"{module_name}.py"  # Append `.py` extension to module name
+                where_clauses.append(f"(module_name = '{module_name_with_extension}' AND component_name = '{component_name}')")
+                
+                # Construct CASE statement for each component and module pair
+                case_statements.append(f"""
+                WHEN module_name = '{module_name_with_extension}' AND component_name = '{component_name}' THEN 
+                    json(COALESCE(
+                        json_insert(
+                            pipeline_names,
+                            '$[#]', '{pipeline_name}'
+                        ),
+                        '["{pipeline_name}"]'
+                    ))
+                """)
+
+            # Combine the CASE statements and WHERE conditions
+            case_sql = " ".join(case_statements)
+            where_sql = " OR ".join(where_clauses)
+
+            # Construct the full SQL query
+            sql_query = f"""
+            UPDATE functions
+            SET pipeline_names = CASE
+                {case_sql}
+                ELSE pipeline_names
+            END
+            WHERE {where_sql};
+            """
+
+            # Execute the query
+            cursor.execute(sql_query)
+            conn.commit()
+            print(f"Pipeline '{pipeline_name}' successfully added to relevant microservices.")
+
+        except Exception as e:
+            print(f"Error updating pipeline_names: {e}")
+        finally:
+            conn.close()

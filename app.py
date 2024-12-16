@@ -14,7 +14,7 @@ repo_path = os.getcwd()
 config = environment_setup.setup_environment(use_local_repo=True, local_repo_path=repo_path)
 
 
-# %% [markdown]
+# %% [markdown]fexplain
 # # SLEGO APP
 
 # %%

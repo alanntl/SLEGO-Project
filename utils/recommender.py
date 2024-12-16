@@ -84,52 +84,51 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
                                 },
                                 }
                                 '''
-        
 
     functions_kb = str(top_pipelines_df.to_dict())
     #functions_kb = str(all_components)
     conn.close()
 
-    # system_message = f'''You are an data analytics expert that recommends pipelines based on user queries. 
-    #                     You have access to a knowledge base of pipelines and their components. 
-    #                     You need to generate a pipeline based on the user query and JSON configuration provided. 
-    #                     You also have access to a list of functions in the knowledge base that can be used in the pipeline.
-    #                     Here are some functions in the knowledge base:{functions_kb}
-    #                     '''
-    system_message = f'''You are a data analytics expert specializing in recommending analytics pipelines based on user needs.
-                        You have a knowledge base of pipelines and components, with specific JSON configurations available.
-                        When a user provides a query, suggest the most relevant pipeline configuration by modifying the parameters to best fit the user’s needs. 
-                        Only recommend components that exist within the knowledge base and ensure that the output JSON format is consistent with existing examples.
-                        However, you can use all components cross different pipelines.
-                        Example JSON format for output:
-                        {{
-                            "function_name": {{
-                                "parameter1": "value1",
-                                "parameter2": "value2",
-                                ...
-                            }},
-                            ...
-                        }}
+    system_message = f'''You are an data analytics expert that recommends pipelines based on user queries. 
+                        You have access to a knowledge base of pipelines and their components. 
+                        You need to generate a pipeline based on the user query and JSON configuration provided. 
+                        You also have access to a list of functions in the knowledge base that can be used in the pipeline.
+                        Here are some functions in the knowledge base:{functions_kb}
                         '''
+    # system_message = f'''You are a data analytics expert specializing in recommending analytics pipelines based on user needs.
+    #                     You have a knowledge base of pipelines and components, with specific JSON configurations available.
+    #                     When a user provides a query, suggest the most relevant pipeline configuration by modifying the parameters to best fit the user’s needs. 
+    #                     Only recommend components that exist within the knowledge base and ensure that the output JSON format is consistent with existing examples.
+    #                     However, you can use all components cross different pipelines.
+    #                     Example JSON format for output:
+    #                     {{
+    #                         "function_name": {{
+    #                             "parameter1": "value1",
+    #                             "parameter2": "value2",
+    #                             ...
+    #                         }},
+    #                         ...
+    #                     }}
+    #                     '''
 
-    # user_message = (f"Recommend a pipeline based on both user_query and user_pipeline."
-    #                 f"The user query is: {user_query}."
-    #                 f"The user pipeline is: {user_pipeline}."
-    #                 f"Here are the functions available in the knowledge base: {functions_kb}, do not generate something you cannot find here."
-    #                 f"Ensure the structure and style are consistent with the existing functions."
-    #                 f"The final outcome should be a JSON configuration of the pipeline same as the format  {prompt_format}"
-    #                 f"Give the reason of summary to explain why the pipeline and special parameters are recommended."
-    #                 )
-    user_message = (f"Based on the user's needs, recommend the best analytics pipeline from the knowledge base by adapting parameters."
-                    f"User Query: {user_query}."
-                    f"Existing Pipeline: {user_pipeline}."
-                    f"Available functions in the knowledge base: {functions_kb}."
-                    f"Make sure to use only components from the knowledge base and keep the output in the same JSON format."
-                    f"Explain why each recommended pipeline component is a good fit and provide any relevant details for parameter adaptation."
-                    f"Output format should follow this example JSON format: {prompt_format}"
-                    f"actually you are encoruage to grab the functions from different pipelines, but make sure the whole pipelien make sense and not doing many different things."
-                    f"dont give comment inside the json, becuase users cannot copy and paste the json into the program"
+    user_message = (f"Recommend a pipeline based on both user_query and user_pipeline."
+                    f"The user query is: {user_query}."
+                    f"The user pipeline is: {user_pipeline}."
+                    f"Here are the functions available in the knowledge base: {functions_kb}, do not generate something you cannot find here."
+                    f"Ensure the structure and style are consistent with the existing functions."
+                    f"The final outcome should be a JSON configuration of the pipeline same as the format  {prompt_format}"
+                    f"Give the reason of summary to explain why the pipeline and special parameters are recommended."
                     )
+    # user_message = (f"Based on the user's needs, recommend the best analytics pipeline from the knowledge base by adapting parameters."
+    #                 f"User Query: {user_query}."
+    #                 f"Existing Pipeline: {user_pipeline}."
+    #                 f"Available functions in the knowledge base: {functions_kb}."
+    #                 f"Make sure to use only components from the knowledge base and keep the output in the same JSON format."
+    #                 f"Explain why each recommended pipeline component is a good fit and provide any relevant details for parameter adaptation."
+    #                 f"Output format should follow this example JSON format: {prompt_format}"
+    #                 f"actually you are encoruage to grab the functions from different pipelines, but make sure the whole pipelien make sense and not doing many different things."
+    #                 f"dont give comment inside the json, becuase users cannot copy and paste the json into the program"
+    #                 )
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -138,11 +137,7 @@ def pipeline_recommendation(db_path,user_query,user_pipeline, openai_api_key):
             {"role": "system", "content": system_message},
             {"role": "user", "content": user_message}
         ],
-        temperature=1,
-        max_tokens=1280,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
+
         )
     response_text = response.choices[0].message.content.strip() # response['choices'][0]['message']['content'].strip()
     return response_text
@@ -182,11 +177,6 @@ def pipeline_parameters_recommendation(user_query, generated_pipeline, openai_ap
             {"role": "system", "content": system_message},
             {"role": "user", "content": user_message}
         ],
-        temperature=1,
-        max_tokens=1280,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
         )
     response_text = response.choices[0].message.content.strip() # response['choices'][0]['message']['content'].strip()
     return response_text
