@@ -1,0 +1,72 @@
+{
+    "m-irisclustering.py": [
+        "fetch_iris_dataset",
+        "perform_kmeans_clustering",
+        "plotly_cluster_visualization"
+    ],
+    "m-eda.py": [
+        "generate_sweetviz_report"
+    ],
+    "m-autogluon.py": [
+        "train_autogluon_tabular",
+        "autogluon_model_predict"
+    ],
+    "m-arxiv.py": [
+        "search_arxiv_papers",
+        "download_papers_from_arxiv_csv",
+        "analyze_research_trends",
+        "__analyze_content"
+    ],
+    "m-titanic_ml.py": [
+        "m_preprocess_titanic_data"
+    ],
+    "m-uci_dataset.py": [
+        "fetch_uci_dataset"
+    ],
+    "m-backtest.py": [
+        "moving_avg_cross_signal",
+        "vbt_sginal_backtest",
+        "buy_and_hold_signal",
+        "backtest_viz_with_quantstats"
+    ],
+    "m-anomalydetection.py": [
+        "fetch_air_quality_data",
+        "preprocess_air_quality_data",
+        "detect_anomalies_isolation_forest",
+        "plot_anomalies"
+    ],
+    "m-yfinance.py": [
+        "import_marketdata_yahoo_csv",
+        "preprocess_filling_missing_values",
+        "compute_return",
+        "plotly_chart",
+        "compute_simple_moving_average"
+    ],
+    "m-sentiment_analysis.py": [
+        "fetch_nltk_movie_reviews",
+        "train_text_classification_model",
+        "text_model_predict"
+    ],
+    "m-data_preprocess.py": [
+        "df_keep_rows_by_index",
+        "df_keep_columns",
+        "df_delete_columns",
+        "df_rename_columns",
+        "merge_csv_by_index",
+        "prepare_dataset_tabular_ml",
+        "split_dataset_4ml",
+        "df_shift_data_row"
+    ],
+    "m-regression.py": [
+        "fetch_sklearn_dataset",
+        "train_sklearn_regression_model",
+        "sklearn_model_predict"
+    ],
+    "m-image_classificaiton.py": [
+        "fetch_cifar10_dataset",
+        "train_cnn_model",
+        "cnn_model_predict",
+        "gather_image_paths",
+        "save_images"
+    ]
+}
