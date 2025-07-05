@@ -1,0 +1,42 @@
+──────────────────────────────────────────────────────────────────────────
+                       COMMERCIAL LICENSE TERMS
+──────────────────────────────────────────────────────────────────────────
+Copyright (c) 2025 Siu Lung, Ng
+
+This document describes the terms under which a Commercial License for the
+Software may be obtained. No commercial rights are granted by this file—
+all terms must be negotiated and agreed in writing.
+
+1.  GRANT OF RIGHTS  
+    Licensor grants Licensee the right to use, reproduce, distribute, modify,
+    and sublicense the Software for commercial, for-profit, SaaS, or other
+    revenue-generating activities **only upon execution of a separate,
+    written Commercial License Agreement** duly signed by both parties.
+
+2.  NO IMPLIED LICENSE  
+    Except for rights expressly granted in a mutually executed Commercial
+    License Agreement, **no other rights or licenses** (including without
+    limitation the rights to redistribute, sublicense, or integrate the
+    Software into proprietary products) are conferred by this file.
+
+3.  NEGOTIATION & EXECUTION  
+    All commercial terms—fees, payment schedules, support levels, warranty,
+    indemnification, term & termination, and any additional rights—shall be
+    negotiated directly with Licensor and set forth in a separate written
+    agreement.
+
+4.  RESERVATION OF RIGHTS  
+    All rights in and to the Software not expressly granted by a executed
+    Commercial License Agreement are reserved by Licensor.
+
+5.  GOVERNING LAW  
+    Any negotiated Commercial License Agreement shall be governed by and
+    construed in accordance with the laws of [Your Chosen Jurisdiction],
+    without regard to conflicts-of-law principles.
+
+6.  CONTACT FOR COMMERCIAL TERMS  
+    To request negotiations or obtain a Commercial License, contact:
+
+        Siu Lung, Ng  
+        Email: alann5157@outlook.com
+──────────────────────────────────────────────────────────────────────────
